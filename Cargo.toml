@@ -1,0 +1,15 @@
+[package]
+name = "wires"
+version = "0.1.0"
+authors = ["raycar5 <none@ofyourbusiness.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+debug = true
+
+[dependencies]
+
+sharded-slab = "0.1.0"
+pretty-hex = "0.2.1"
