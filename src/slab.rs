@@ -2,6 +2,20 @@ pub struct Slab<T: Sized> {
     data: Vec<Option<T>>,
     spaces: Vec<usize>,
 }
+pub struct SlabIter<'a, T> {
+    iter: std::iter::Enumerate<std::slice::Iter<'a, Option<T>>>,
+}
+impl<'a, T> Iterator for SlabIter<'a, T> {
+    type Item = (usize, &'a T);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let (i, item) = self.iter.next()?;
+            if let Some(item) = item {
+                return Some((i, item));
+            }
+        }
+    }
+}
 impl<T: Sized> Slab<T> {
     pub fn new() -> Self {
         Self {
@@ -9,15 +23,15 @@ impl<T: Sized> Slab<T> {
             spaces: Vec::new(),
         }
     }
-    pub fn insert(&mut self, item: T) -> Option<usize> {
-        Some(if let Some(space) = self.spaces.pop() {
+    pub fn insert(&mut self, item: T) -> usize {
+        if let Some(space) = self.spaces.pop() {
             self.data[space] = Some(item);
             space
         } else {
             let space = self.data.len();
             self.data.push(Some(item));
             space
-        })
+        }
     }
     pub fn get_mut(&mut self, space: usize) -> Option<&mut T> {
         self.data
@@ -31,5 +45,10 @@ impl<T: Sized> Slab<T> {
     }
     pub fn len(&self) -> usize {
         self.data.len() - self.spaces.len()
+    }
+    pub fn iter<'a>(&'a self) -> SlabIter<'a, T> {
+        SlabIter {
+            iter: self.data.iter().enumerate(),
+        }
     }
 }

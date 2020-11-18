@@ -1,6 +1,8 @@
 #![feature(bindings_after_at)]
+use colour::{green, red};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+#[macro_use]
 mod graph;
 mod slab;
 mod state;
@@ -11,33 +13,54 @@ fn main() {
     let mut g = BaseNodeGraph::new();
 
     let bits = 128;
-    let adder_cin = g.lever().unwrap();
-    let adder_levers: Vec<usize> = (0..bits * 2)
+    let mut a: i128 = 8;
+    let mut b: i128 = -3;
+
+    // Adder levers
+    let adder_cin = g.lever("cin");
+    let adder_levers: Vec<NodeIndex> = (0..bits * 2)
         .step_by(1)
-        .map(|_| g.lever().unwrap())
+        .map(|i| g.lever(format!("lever{}", i)))
         .collect();
 
+    let clock = g.lever("clock");
+    let mut qs = Vec::new();
+    // D flip flop register
+    for i in 0..bits * 2 {
+        let bot_flop_nand = g.nand2(adder_levers[i], LATER, format!("bot_flop_and{}", i));
+
+        let bot_flip_and = g.and2(bot_flop_nand, clock, format!("bot_flip_and1{}", i));
+        let bot_flip_nand = g.nand2(bot_flip_and, LATER, format!("bot_flip_and2{}", i));
+        g.d1(bot_flop_nand, bot_flip_nand);
+
+        let top_flop_nand = g.nand2(clock, LATER, "");
+        g.d1(bot_flip_nand, top_flop_nand);
+
+        let top_flip_nand = g.nand2(bot_flop_nand, top_flop_nand, "");
+        g.d1(top_flop_nand, top_flip_nand);
+
+        let nq = g.nand2(bot_flip_nand, LATER, "");
+        let q = g.nand2(top_flop_nand, nq, "");
+        g.d1(nq, q);
+        qs.push(q);
+    }
+
+    // Adder
     let mut outputs = Vec::new();
 
     let mut cin = adder_cin;
     for i in 0..bits {
-        let x = g
-            .xor2(adder_levers[i * 2], adder_levers[i * 2 + 1])
-            .unwrap();
-        let output = g.xor2(x, cin).unwrap();
-        let a = g
-            .and2(adder_levers[i * 2], adder_levers[i * 2 + 1])
-            .unwrap();
-        let a2 = g.and2(x, cin).unwrap();
-        cin = g.or2(a2, a).unwrap();
+        let x = g.xor2(qs[i * 2], qs[i * 2 + 1], "x");
+        let output = g.xor2(x, cin, format!("output{}", i));
+        let a = g.and2(qs[i * 2], qs[i * 2 + 1], "a");
+        let a2 = g.and2(x, cin, "a2");
+        cin = g.or2(a2, a, format!("carry{}", i));
         outputs.push(output)
     }
 
     let mut state = State::new(g.len());
-    let mut a: i128 = 8;
-    let mut b: i128 = -5;
     for lever in &adder_levers {
-        if lever % 2 == 0 {
+        if lever.idx % 2 == 0 {
             state.set(*lever, a & 1 != 0);
             a = a >> 1;
         } else {
@@ -46,10 +69,11 @@ fn main() {
         }
     }
     let drive = |g: &mut BaseNodeGraph, state: &mut State| {
-        let mut out: i128 = 0;
+        let mut out = a * 0;
         for (i, output) in outputs.iter().enumerate() {
             let mask = 1 << i;
-            if g.value(*output, state) {
+            let s = g.value(*output, state);
+            if s {
                 out = out | mask
             } else {
                 out = out & !mask
@@ -62,13 +86,17 @@ fn main() {
     let mut new_hash = 1;
     let mut ticks = 0;
     let mut out = 0;
+    g.init(&mut state);
+    state.set(clock, true);
     let t = std::time::Instant::now();
     //while hash != new_hash {
     for _ in 0..1000000 {
         ticks += 1;
+
         hash = new_hash;
         out = drive(&mut g, &mut state);
         state.tick();
+
         let mut hasher = DefaultHasher::new();
         state.hash(&mut hasher);
         new_hash = hasher.finish();

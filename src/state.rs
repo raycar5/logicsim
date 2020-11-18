@@ -1,4 +1,4 @@
-use crate::graph::{OFF, ON};
+use crate::graph::{NodeIndex, OFF, ON};
 use pretty_hex::*;
 #[derive(Hash)]
 pub struct State {
@@ -26,23 +26,33 @@ impl State {
             false
         }
     }
-    pub fn get_state(&self, index: usize) -> bool {
-        if index == OFF {
+    pub fn get_state(&self, index: NodeIndex) -> bool {
+        if index.is_off() {
             return false;
         }
-        if index == ON {
+        if index.is_on() {
             return true;
         }
-        self.get_from_bit_vec(index * 2)
+        self.get_from_bit_vec(index.idx * 2)
     }
-    pub fn get_updated(&self, index: usize) -> bool {
-        if index == OFF || index == ON {
+    pub fn get_updated(&self, index: NodeIndex) -> bool {
+        if index.is_later() {
+            panic!("index: {} is LATER", index.idx);
+        }
+        if index.is_off() || index.is_on() {
             return true;
         }
-        self.get_from_bit_vec(index * 2 + 1)
+        self.get_from_bit_vec(index.idx * 2 + 1)
     }
-    pub fn set(&mut self, index: usize, value: bool) {
-        let (word_index, mask) = word_mask(index * 2);
+    pub fn get_if_updated(&self, index: NodeIndex) -> Option<bool> {
+        if self.get_updated(index) {
+            Some(self.get_state(index))
+        } else {
+            None
+        }
+    }
+    pub fn set(&mut self, index: NodeIndex, value: bool) {
+        let (word_index, mask) = word_mask(index.idx * 2);
         let updated_bit_mask = mask << 1;
 
         let len = self.states.len();
@@ -60,10 +70,10 @@ impl State {
             *state = *state & !mask;
         }
     }
-    pub fn flip(&mut self, index: usize) {
-        let (word_index, mask) = word_mask(index * 2);
+    pub fn set_updated(&mut self, index: NodeIndex) {
+        let (word_index, mask) = word_mask(index.idx * 2 + 1);
         let state = &mut self.states[word_index];
-        *state = *state ^ mask;
+        *state = *state | mask;
     }
     pub fn tick(&mut self) {
         // clear all odd bits;
@@ -91,18 +101,18 @@ mod tests {
     fn test_get_set() {
         for i in 0..100 {
             let mut state = State::new(1);
-            assert_eq!(state.get_state(i), false);
-            assert_eq!(state.get_updated(i), false);
+            assert_eq!(state.get_state(ni!(i)), false);
+            assert_eq!(state.get_updated(ni!(i)), false);
 
-            state.set(i, true);
+            state.set(ni!(i), true);
 
-            assert_eq!(state.get_state(i), true);
-            assert_eq!(state.get_updated(i), true);
+            assert_eq!(state.get_state(ni!(i)), true);
+            assert_eq!(state.get_updated(ni!(i)), true);
 
-            state.set(i, false);
+            state.set(ni!(i), false);
 
-            assert_eq!(state.get_state(i), false);
-            assert_eq!(state.get_updated(i), true);
+            assert_eq!(state.get_state(ni!(i)), false);
+            assert_eq!(state.get_updated(ni!(i)), true);
         }
     }
 
@@ -110,20 +120,18 @@ mod tests {
     fn test_tick() {
         let mut state = State::new(1);
         for i in 0..100 {
-            assert_eq!(state.get_state(i), false, "index: {}", i);
-            assert_eq!(state.get_updated(i), false, "index: {}", i);
+            assert_eq!(state.get_state(ni!(i)), false, "index: {}", i);
+            assert_eq!(state.get_updated(ni!(i)), false, "index: {}", i);
 
-            state.set(i, true);
+            state.set(ni!(i), true);
 
-            assert_eq!(state.get_state(i), true, "index: {}", i);
-            assert_eq!(state.get_updated(i), true, "index: {}", i);
+            assert_eq!(state.get_state(ni!(i)), true, "index: {}", i);
+            assert_eq!(state.get_updated(ni!(i)), true, "index: {}", i);
 
-            state.dump();
             state.tick();
-            state.dump();
 
-            assert_eq!(state.get_state(i), true, "index: {}", i);
-            assert_eq!(state.get_updated(i), false, "index: {}", i);
+            assert_eq!(state.get_state(ni!(i)), true, "index: {}", i);
+            assert_eq!(state.get_updated(ni!(i)), false, "index: {}", i);
         }
     }
 }
