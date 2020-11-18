@@ -51,16 +51,20 @@ impl State {
             None
         }
     }
-    pub fn set(&mut self, index: NodeIndex, value: bool) {
-        let (word_index, mask) = word_mask(index.idx * 2);
-        let updated_bit_mask = mask << 1;
-
+    #[inline(always)]
+    fn reserve_for_word(&mut self, word_index: usize) {
         let len = self.states.len();
         let diff = word_index as i64 + 1 - len as i64;
         if diff > 0 {
             self.states.reserve(diff as usize);
             self.states.extend((0..diff).step_by(1).map(|_| 0u64));
         }
+    }
+    pub fn set(&mut self, index: NodeIndex, value: bool) {
+        let (word_index, mask) = word_mask(index.idx * 2);
+        let updated_bit_mask = mask << 1;
+
+        self.reserve_for_word(word_index);
 
         let state = &mut self.states[word_index];
         *state = *state | updated_bit_mask;
@@ -72,6 +76,7 @@ impl State {
     }
     pub fn set_updated(&mut self, index: NodeIndex) {
         let (word_index, mask) = word_mask(index.idx * 2 + 1);
+        self.reserve_for_word(word_index);
         let state = &mut self.states[word_index];
         *state = *state | mask;
     }

@@ -89,9 +89,12 @@ fn main() {
     g.init(&mut state);
     state.set(clock, true);
     let t = std::time::Instant::now();
-    //while hash != new_hash {
-    for _ in 0..1000000 {
+    while hash != new_hash {
+        //for _ in 0..1000000 {
         ticks += 1;
+        if ticks == 1 {
+            state.set(clock, true);
+        }
 
         hash = new_hash;
         out = drive(&mut g, &mut state);

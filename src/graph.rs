@@ -153,20 +153,20 @@ impl BaseNodeGraph {
                     }
                 }
                 Xor { deps } | Or { deps } | Nand { deps } | And { deps } => {
-                    let a = state.get_state(deps[0]);
                     let updated0 = state.get_updated(deps[0]);
-                    if !updated0 && !idx.idx < deps[0].idx {
-                        self.scrap_updates_stack.push(idx);
-                        self.scrap_updates_stack.push(deps[0]);
-                        continue;
-                    }
-                    let b = state.get_state(deps[1]);
                     let updated1 = state.get_updated(deps[1]);
                     if !updated0 && !idx.idx < deps[0].idx {
                         self.scrap_updates_stack.push(idx);
                         self.scrap_updates_stack.push(deps[0]);
+                        if !updated1 && !idx.idx < deps[1].idx {
+                            self.scrap_updates_stack.push(deps[1]);
+                            continue;
+                        }
                         continue;
                     }
+
+                    let a = state.get_state(deps[0]);
+                    let b = state.get_state(deps[1]);
 
                     let new_state = match node {
                         Xor { .. } => a ^ b,
@@ -202,7 +202,7 @@ impl BaseNodeGraph {
                 continue;
             }
             match node {
-                Lever => state.set(ni!(idx), false),
+                Lever => state.set_updated(ni!(idx)),
                 Not { dep } => {
                     if let Some(val) = state.get_if_updated(dep) {
                         state.set(ni!(idx), !val)
