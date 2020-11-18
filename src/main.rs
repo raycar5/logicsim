@@ -9,7 +9,7 @@ use state::State;
 fn main() {
     let mut g = BaseNodeGraph::new();
 
-    let bits = 64;
+    let bits = 128;
     let adder_cin = g.lever().unwrap();
     let adder_levers: Vec<usize> = (0..bits * 2)
         .step_by(1)
@@ -33,8 +33,8 @@ fn main() {
     }
 
     let mut state = State::new(g.len());
-    let mut a: i64 = 8;
-    let mut b: i64 = -5;
+    let mut a: i128 = 8;
+    let mut b: i128 = -5;
     for lever in &adder_levers {
         if lever % 2 == 0 {
             state.set(*lever, a & 1 != 0);
@@ -45,7 +45,7 @@ fn main() {
         }
     }
     let drive = |state: &mut State| {
-        let mut out: i64 = 0;
+        let mut out: i128 = 0;
         for (i, output) in outputs.iter().enumerate() {
             let mask = 1 << i;
             if (g.value(*output, state)).unwrap() {
@@ -67,7 +67,6 @@ fn main() {
         ticks += 1;
         hash = new_hash;
         out = drive(&mut state);
-        state.flip(adder_levers[ticks % adder_levers.len()]);
         state.tick();
         let mut hasher = DefaultHasher::new();
         state.hash(&mut hasher);
