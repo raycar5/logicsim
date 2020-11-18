@@ -1,5 +1,4 @@
 #![feature(bindings_after_at)]
-use colour::{green, red};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 #[macro_use]
@@ -26,23 +25,38 @@ fn main() {
     let clock = g.lever("clock");
     let mut qs = Vec::new();
     // D flip flop register
+    let nand_flops = false;
     for i in 0..bits * 2 {
-        let bot_flop_nand = g.nand2(adder_levers[i], LATER, format!("bot_flop_and{}", i));
+        if nand_flops {
+            let bot_flop_nand = g.nand2(adder_levers[i], LATER, format!("bot_flop_and{}", i));
 
-        let bot_flip_and = g.and2(bot_flop_nand, clock, format!("bot_flip_and1{}", i));
-        let bot_flip_nand = g.nand2(bot_flip_and, LATER, format!("bot_flip_and2{}", i));
-        g.d1(bot_flop_nand, bot_flip_nand);
+            let bot_flip_and = g.and2(bot_flop_nand, clock, format!("bot_flip_and1{}", i));
+            let bot_flip_nand = g.nand2(bot_flip_and, LATER, format!("bot_flip_and2{}", i));
+            g.d1(bot_flop_nand, bot_flip_nand);
 
-        let top_flop_nand = g.nand2(clock, LATER, "");
-        g.d1(bot_flip_nand, top_flop_nand);
+            let top_flop_nand = g.nand2(clock, LATER, "");
+            g.d1(bot_flip_nand, top_flop_nand);
 
-        let top_flip_nand = g.nand2(bot_flop_nand, top_flop_nand, "");
-        g.d1(top_flop_nand, top_flip_nand);
+            let top_flip_nand = g.nand2(bot_flop_nand, top_flop_nand, "");
+            g.d1(top_flop_nand, top_flip_nand);
 
-        let nq = g.nand2(bot_flip_nand, LATER, "");
-        let q = g.nand2(top_flop_nand, nq, "");
-        g.d1(nq, q);
-        qs.push(q);
+            let nq = g.nand2(bot_flip_nand, LATER, "");
+            let q = g.nand2(top_flop_nand, nq, "");
+            g.d1(nq, q);
+            qs.push(q);
+        } else {
+            let input = adder_levers[i];
+            let ninput = g.not1(input, "");
+
+            let flip_and = g.and2(ninput, clock, "");
+            let flop_and = g.and2(input, clock, "");
+
+            let q = g.nor2(flip_and, LATER, "");
+
+            let nq = g.nor2(flop_and, q, "");
+            g.d1(q, nq);
+            qs.push(q)
+        }
     }
 
     // Adder
@@ -89,11 +103,11 @@ fn main() {
     g.init(&mut state);
     state.set(clock, true);
     let t = std::time::Instant::now();
-    while hash != new_hash {
-        //for _ in 0..1000000 {
+    //while hash != new_hash {
+    for _ in 0..1000000 {
         ticks += 1;
-        if ticks == 1 {
-            state.set(clock, true);
+        if ticks == 2 {
+            state.set(clock, false);
         }
 
         hash = new_hash;

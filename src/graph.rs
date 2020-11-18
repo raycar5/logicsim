@@ -1,6 +1,6 @@
 use crate::slab::Slab;
 use crate::state::State;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 #[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct NodeIndex {
     pub idx: usize,
@@ -34,6 +34,7 @@ pub enum BaseNode {
     And { deps: [NodeIndex; 2] },
     Xor { deps: [NodeIndex; 2] },
     Nand { deps: [NodeIndex; 2] },
+    Nor { deps: [NodeIndex; 2] },
     Not { dep: NodeIndex },
 }
 use BaseNode::*;
@@ -63,7 +64,7 @@ impl BaseNodeGraph {
                 assert!(x == 0, "Not only has one dependency");
                 *dep = new_dep;
             }
-            Xor { deps } | Or { deps } | And { deps } | Nand { deps } => {
+            Xor { deps } | Or { deps } | And { deps } | Nand { deps } | Nor { deps } => {
                 deps[x] = new_dep;
             }
         }
@@ -104,6 +105,13 @@ impl BaseNodeGraph {
     }
     pub fn or2<S: Into<String>>(&mut self, d0: NodeIndex, d1: NodeIndex, name: S) -> NodeIndex {
         let idx = NodeIndex::new(self.nodes.insert(Or { deps: [d0, d1] }));
+        if cfg!(feature = "debug_gate_names") {
+            self.names.insert(idx, name.into());
+        }
+        idx
+    }
+    pub fn nor2<S: Into<String>>(&mut self, d0: NodeIndex, d1: NodeIndex, name: S) -> NodeIndex {
+        let idx = NodeIndex::new(self.nodes.insert(Nor { deps: [d0, d1] }));
         if cfg!(feature = "debug_gate_names") {
             self.names.insert(idx, name.into());
         }
@@ -152,7 +160,7 @@ impl BaseNodeGraph {
                         self.scrap_updates_stack.push(*dep);
                     }
                 }
-                Xor { deps } | Or { deps } | Nand { deps } | And { deps } => {
+                Xor { deps } | Or { deps } | Nand { deps } | And { deps } | Nor { deps } => {
                     let updated0 = state.get_updated(deps[0]);
                     let updated1 = state.get_updated(deps[1]);
                     if !updated0 && !idx.idx < deps[0].idx {
@@ -173,6 +181,7 @@ impl BaseNodeGraph {
                         Or { .. } => a || b,
                         And { .. } => a && b,
                         Nand { .. } => !(a && b),
+                        Nor { .. } => !(a || b),
                         Lever | Not { .. } => unreachable!(),
                     };
 
@@ -206,13 +215,14 @@ impl BaseNodeGraph {
                 Not { dep } => {
                     if let Some(val) = state.get_if_updated(dep) {
                         state.set(ni!(idx), !val)
+                        // The way we break out of infinite loops is by selecting the "lower one" this is arbitrary but should work.
                     } else if idx < dep.idx {
                         state.set(ni!(idx), true)
                     } else {
                         work.push_back((idx, node))
                     }
                 }
-                Xor { deps } | Or { deps } | Nand { deps } | And { deps } => {
+                Xor { deps } | Or { deps } | Nand { deps } | And { deps } | Nor { deps } => {
                     let d0 = state.get_if_updated(deps[0]).or_else(|| {
                         if idx < deps[0].idx {
                             Some(false)
@@ -232,6 +242,7 @@ impl BaseNodeGraph {
                             Xor { .. } => d0 ^ d1,
                             Or { .. } => d0 || d1,
                             Nand { .. } => !(d0 && d1),
+                            Nor { .. } => !(d0 && d1),
                             And { .. } => d0 && d1,
                             Lever | Not { .. } => unreachable!(),
                         };
