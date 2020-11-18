@@ -1,3 +1,4 @@
+#![feature(bindings_after_at)]
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 mod graph;
@@ -44,11 +45,11 @@ fn main() {
             b = b >> 1;
         }
     }
-    let drive = |state: &mut State| {
+    let drive = |g: &mut BaseNodeGraph, state: &mut State| {
         let mut out: i128 = 0;
         for (i, output) in outputs.iter().enumerate() {
             let mask = 1 << i;
-            if (g.value(*output, state)).unwrap() {
+            if g.value(*output, state) {
                 out = out | mask
             } else {
                 out = out & !mask
@@ -66,7 +67,7 @@ fn main() {
     for _ in 0..1000000 {
         ticks += 1;
         hash = new_hash;
-        out = drive(&mut state);
+        out = drive(&mut g, &mut state);
         state.tick();
         let mut hasher = DefaultHasher::new();
         state.hash(&mut hasher);
