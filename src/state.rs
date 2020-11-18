@@ -1,8 +1,9 @@
-use crate::graph::{NodeIndex, OFF, ON};
+use crate::graph::NodeIndex;
 use pretty_hex::*;
 #[derive(Hash)]
 pub struct State {
     states: Vec<u64>,
+    updated: Vec<u64>,
 }
 fn word_mask(index: usize) -> (usize, u64) {
     let word = index / 64;
@@ -11,21 +12,26 @@ fn word_mask(index: usize) -> (usize, u64) {
 }
 impl State {
     pub fn new(size: usize) -> State {
-        let len = size * 2 / 64;
+        let len = size / 64;
         let mut states = Vec::new();
+        let mut updated = Vec::new();
+
         states.reserve(len);
-        State { states }
+        updated.reserve(len);
+
+        State { states, updated }
     }
     #[inline(always)]
-    fn get_from_bit_vec(&self, real_index: usize) -> bool {
+    fn get_from_bit_vec(v: &Vec<u64>, real_index: usize) -> bool {
         let (word_index, mask) = word_mask(real_index);
-        let word = self.states.get(word_index);
+        let word = v.get(word_index);
         if let Some(word) = word {
             word & mask != 0
         } else {
             false
         }
     }
+
     pub fn get_state(&self, index: NodeIndex) -> bool {
         if index.is_off() {
             return false;
@@ -33,8 +39,10 @@ impl State {
         if index.is_on() {
             return true;
         }
-        self.get_from_bit_vec(index.idx * 2)
+
+        Self::get_from_bit_vec(&self.states, index.idx)
     }
+
     pub fn get_updated(&self, index: NodeIndex) -> bool {
         if index.is_later() {
             panic!("index: {} is LATER", index.idx);
@@ -42,8 +50,10 @@ impl State {
         if index.is_off() || index.is_on() {
             return true;
         }
-        self.get_from_bit_vec(index.idx * 2 + 1)
+
+        Self::get_from_bit_vec(&self.updated, index.idx)
     }
+
     pub fn get_if_updated(&self, index: NodeIndex) -> Option<bool> {
         if self.get_updated(index) {
             Some(self.get_state(index))
@@ -51,42 +61,48 @@ impl State {
             None
         }
     }
-    #[inline(always)]
+
     fn reserve_for_word(&mut self, word_index: usize) {
         let len = self.states.len();
         let diff = word_index as i64 + 1 - len as i64;
         if diff > 0 {
             self.states.reserve(diff as usize);
-            self.states.extend((0..diff).step_by(1).map(|_| 0u64));
+            self.updated.reserve(diff as usize);
+
+            self.states.extend((0..diff).step_by(1).map(|_| 0));
+            self.updated.extend((0..diff).step_by(1).map(|_| 0));
         }
     }
+
     pub fn set(&mut self, index: NodeIndex, value: bool) {
-        let (word_index, mask) = word_mask(index.idx * 2);
-        let updated_bit_mask = mask << 1;
+        let (word_index, mask) = word_mask(index.idx);
 
         self.reserve_for_word(word_index);
 
         let state = &mut self.states[word_index];
-        *state = *state | updated_bit_mask;
         if value {
             *state = *state | mask;
         } else {
             *state = *state & !mask;
         }
+
+        let updated = &mut self.updated[word_index];
+        *updated = *updated | mask;
     }
+
     pub fn set_updated(&mut self, index: NodeIndex) {
-        let (word_index, mask) = word_mask(index.idx * 2 + 1);
+        let (word_index, mask) = word_mask(index.idx);
         self.reserve_for_word(word_index);
-        let state = &mut self.states[word_index];
-        *state = *state | mask;
+        let updated = &mut self.updated[word_index];
+        *updated = *updated | mask;
     }
+
     pub fn tick(&mut self) {
-        // clear all odd bits;
-        for state in &mut self.states {
-            let mask: u64 = 0x5555555555555555; // pattern 010101 etc..
-            *state = *state & mask;
+        for updated in &mut self.updated {
+            *updated = 0
         }
     }
+
     pub fn dump(&self) {
         let slice = unsafe {
             std::slice::from_raw_parts(

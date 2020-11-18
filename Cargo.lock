@@ -276,6 +276,7 @@ version = "0.1.0"
 dependencies = [
  "colour",
  "pretty-hex",
+ "smallvec",
 ]
 
 [[package]]
