@@ -8,8 +8,11 @@ edition = "2018"
 
 [profile.release]
 debug = true
+[features]
+default = ["debug_gate_names"]
+
+debug_gate_names = []
 
 [dependencies]
-
-sharded-slab = "0.1.0"
+colour = "0.5.0"
 pretty-hex = "0.2.1"
