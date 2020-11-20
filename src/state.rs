@@ -1,5 +1,5 @@
 use crate::bititer::word_mask_64;
-use crate::graph::NodeIndex;
+use crate::graph::GateIndex;
 use pretty_hex::*;
 #[derive(Hash)]
 pub struct State {
@@ -28,7 +28,7 @@ impl State {
         }
     }
 
-    pub fn get_state(&self, index: NodeIndex) -> bool {
+    pub fn get_state(&self, index: GateIndex) -> bool {
         if index.is_off() {
             return false;
         }
@@ -39,7 +39,7 @@ impl State {
         Self::get_from_bit_vec(&self.states, index.idx)
     }
 
-    pub fn get_updated(&self, index: NodeIndex) -> bool {
+    pub fn get_updated(&self, index: GateIndex) -> bool {
         if index.is_off() || index.is_on() {
             return true;
         }
@@ -47,7 +47,7 @@ impl State {
         Self::get_from_bit_vec(&self.updated, index.idx)
     }
 
-    pub fn get_if_updated(&self, index: NodeIndex) -> Option<bool> {
+    pub fn get_if_updated(&self, index: GateIndex) -> Option<bool> {
         if self.get_updated(index) {
             Some(self.get_state(index))
         } else {
@@ -67,7 +67,7 @@ impl State {
         }
     }
 
-    pub fn set(&mut self, index: NodeIndex, value: bool) {
+    pub fn set(&mut self, index: GateIndex, value: bool) {
         let (word_index, mask) = word_mask_64(index.idx);
 
         self.reserve_for_word(word_index);
@@ -83,7 +83,7 @@ impl State {
         *updated = *updated | mask;
     }
 
-    pub fn set_updated(&mut self, index: NodeIndex) {
+    pub fn set_updated(&mut self, index: GateIndex) {
         let (word_index, mask) = word_mask_64(index.idx);
         self.reserve_for_word(word_index);
         let updated = &mut self.updated[word_index];
@@ -115,18 +115,18 @@ mod tests {
     fn test_get_set() {
         for i in 2..100 {
             let mut state = State::new();
-            assert_eq!(state.get_state(ni!(i)), false);
-            assert_eq!(state.get_updated(ni!(i)), false);
+            assert_eq!(state.get_state(gi!(i)), false);
+            assert_eq!(state.get_updated(gi!(i)), false);
 
-            state.set(ni!(i), true);
+            state.set(gi!(i), true);
 
-            assert_eq!(state.get_state(ni!(i)), true);
-            assert_eq!(state.get_updated(ni!(i)), true);
+            assert_eq!(state.get_state(gi!(i)), true);
+            assert_eq!(state.get_updated(gi!(i)), true);
 
-            state.set(ni!(i), false);
+            state.set(gi!(i), false);
 
-            assert_eq!(state.get_state(ni!(i)), false);
-            assert_eq!(state.get_updated(ni!(i)), true);
+            assert_eq!(state.get_state(gi!(i)), false);
+            assert_eq!(state.get_updated(gi!(i)), true);
         }
     }
 
@@ -134,18 +134,18 @@ mod tests {
     fn test_tick() {
         let mut state = State::new();
         for i in 2..100 {
-            assert_eq!(state.get_state(ni!(i)), false, "index: {}", i);
-            assert_eq!(state.get_updated(ni!(i)), false, "index: {}", i);
+            assert_eq!(state.get_state(gi!(i)), false, "index: {}", i);
+            assert_eq!(state.get_updated(gi!(i)), false, "index: {}", i);
 
-            state.set(ni!(i), true);
+            state.set(gi!(i), true);
 
-            assert_eq!(state.get_state(ni!(i)), true, "index: {}", i);
-            assert_eq!(state.get_updated(ni!(i)), true, "index: {}", i);
+            assert_eq!(state.get_state(gi!(i)), true, "index: {}", i);
+            assert_eq!(state.get_updated(gi!(i)), true, "index: {}", i);
 
             state.tick();
 
-            assert_eq!(state.get_state(ni!(i)), true, "index: {}", i);
-            assert_eq!(state.get_updated(ni!(i)), false, "index: {}", i);
+            assert_eq!(state.get_state(gi!(i)), true, "index: {}", i);
+            assert_eq!(state.get_updated(gi!(i)), false, "index: {}", i);
         }
     }
 }

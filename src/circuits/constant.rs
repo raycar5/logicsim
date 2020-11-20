@@ -3,7 +3,7 @@ use crate::graph::*;
 
 pub const CONSTANT: &str = "constant";
 
-pub fn constant<T>(c: T) -> Vec<NodeIndex> {
+pub fn constant<T>(c: T) -> Vec<GateIndex> {
     let width = std::mem::size_of::<T>() * 8;
     let mut out = Vec::new();
     out.reserve(width);
@@ -25,7 +25,7 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        let mut g = BaseNodeGraph::new();
+        let mut g = GateGraph::new();
 
         let constants = [0, 0b1u8, 0b10010010];
         let results = [

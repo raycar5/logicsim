@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use wires::*;
 fn main() {
-    let mut g = BaseNodeGraph::new();
+    let mut g = GateGraph::new();
 
     // Adder
     let input1: Vec<_> = constant(1u8);

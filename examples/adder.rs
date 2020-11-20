@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 use wires::*;
 fn main() {
-    let mut g = BaseNodeGraph::new();
+    let mut g = GateGraph::new();
     let bits = 128;
     let a = 0u128;
     let b = -10000i128;

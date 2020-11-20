@@ -3,11 +3,11 @@ use crate::graph::*;
 pub const ADDER: &str = "adder";
 
 pub fn adder(
-    g: &mut BaseNodeGraph,
-    mut cin: NodeIndex,
-    input1: &[NodeIndex],
-    input2: &[NodeIndex],
-) -> Vec<NodeIndex> {
+    g: &mut GateGraph,
+    mut cin: GateIndex,
+    input1: &[GateIndex],
+    input2: &[GateIndex],
+) -> Vec<GateIndex> {
     assert_eq!(input1.len(), input2.len());
     let bits = input1.len();
     let mut outputs = Vec::new();
