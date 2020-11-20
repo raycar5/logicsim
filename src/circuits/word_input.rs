@@ -8,7 +8,7 @@ pub struct WordInput {
 impl WordInput {
     pub fn new(g: &mut GateGraph, width: usize) -> Self {
         Self {
-            levers: (0..width).step_by(1).map(|_| g.lever(WORD_INPUT)).collect(),
+            levers: (0..width).map(|_| g.lever(WORD_INPUT)).collect(),
         }
     }
 
@@ -29,16 +29,13 @@ impl WordInput {
         self.update_bit(g, bit, true)
     }
     pub fn set<T: std::fmt::Debug>(&self, g: &mut GateGraph, val: T) {
-        let width = std::mem::size_of_val(&val) * 8;
-        assert!(
-            width <= self.levers.len(),
-            "not enough bits in word input to set value {:?}",
-            val
-        );
         g.update_levers(&self.levers, BitIter::new(val));
     }
 
     pub fn bits(&self) -> &[GateIndex] {
         &self.levers
+    }
+    pub fn len(&self) -> usize {
+        self.levers.len()
     }
 }

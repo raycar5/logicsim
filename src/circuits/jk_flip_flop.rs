@@ -52,8 +52,7 @@ mod tests {
         g.set_lever(set);
         assert_eq!(g.value(q), false);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
+        g.pulse_lever(clock);
         g.run_until_stable(10).unwrap();
         assert_eq!(g.value(q), true);
 
@@ -63,8 +62,7 @@ mod tests {
         g.set_lever(reset);
         assert_eq!(g.value(q), true);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
+        g.pulse_lever(clock);
         assert_eq!(g.value(q), false);
 
         g.reset_lever(reset);

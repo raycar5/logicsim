@@ -1,4 +1,4 @@
-use super::d_flip_flop;
+use super::{bus_multiplexer, d_flip_flop, zeros};
 use crate::graph::*;
 pub const REGISTER: &str = "REGISTER";
 
@@ -8,12 +8,16 @@ pub fn register(
     clock: GateIndex,
     write: GateIndex,
     read: GateIndex,
+    reset: GateIndex,
 ) -> Vec<GateIndex> {
     let width = input.len();
     let mut out = Vec::new();
+
+    let write = g.or2(write, reset, REGISTER);
+    let new_input = bus_multiplexer(g, &[reset], &[input, &zeros(input.len())]);
     out.reserve(width);
-    for bit in input {
-        out.push(d_flip_flop(g, *bit, clock, write, read))
+    for bit in new_input {
+        out.push(d_flip_flop(g, bit, clock, write, read))
     }
     out
 }
@@ -32,9 +36,10 @@ mod tests {
 
         let read = g.lever("read");
         let write = g.lever("write");
+        let reset = g.lever("reset");
         let clock = g.lever("clock");
 
-        let r = register(&mut g, input.bits(), clock, write, read);
+        let r = register(&mut g, input.bits(), clock, write, read, reset);
 
         let out = &r.clone().try_into().unwrap();
         g.init();
@@ -72,5 +77,9 @@ mod tests {
 
         g.reset_lever(clock);
         assert_eq!(g.collect_u8(out), value ^ value);
+
+        g.set_lever(reset);
+        g.set_lever(clock);
+        assert_eq!(g.collect_u8(out), 0);
     }
 }

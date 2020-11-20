@@ -1,4 +1,4 @@
-use super::{jk_flip_flop, multiplexer};
+use super::{bus_multiplexer, jk_flip_flop, multiplexer, zeros};
 use crate::graph::*;
 
 pub const COUNTER: &str = "counter";
@@ -7,6 +7,7 @@ pub const COUNTER: &str = "counter";
 pub fn counter(
     g: &mut GateGraph,
     clock: GateIndex,
+    enable: GateIndex,
     write: GateIndex,
     read: GateIndex,
     reset_all: GateIndex,
@@ -15,14 +16,13 @@ pub fn counter(
     let width = input.len();
     let mut out = Vec::new();
     out.reserve(width);
-    let mut carry_clock = clock;
+    let mut carry_clock = g.and2(clock, enable, COUNTER);
 
-    for i in input {
-        let overriding = g.or2(write, reset_all, COUNTER);
-        let nreset = g.not1(reset_all, COUNTER);
+    let overriding = g.or2(write, reset_all, COUNTER);
+    // Set all inputs to 0 if reset is on.
+    let new_input = bus_multiplexer(g, &[reset_all], &[input, &zeros(width)]);
 
-        // Set all inputs to 0 if reset is on.
-        let i = g.and2(*i, nreset, COUNTER);
+    for i in new_input {
         let ni = g.not1(i, COUNTER);
 
         // If we are counting we want both set and reset on.
@@ -54,43 +54,45 @@ mod tests {
         let val = 34u8;
         let input = &constant(val)[0..2];
         let clock = g.lever("clock");
+        let enable = g.lever("enable");
         let read = g.lever("read");
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, write, read, reset, input);
+        let output = counter(&mut g, clock, enable, write, read, reset, input);
 
         g.init();
         g.run_until_stable(100).unwrap();
+
+        g.set_lever(reset);
+        g.pulse_lever(clock);
+        g.reset_lever(reset);
 
         assert_eq!(g.value(output[0]), false);
         assert_eq!(g.value(output[1]), false);
 
         g.set_lever(read);
-        assert_eq!(g.value(output[0]), true);
-        assert_eq!(g.value(output[1]), true);
-
-        g.set_lever(clock);
-        g.reset_lever(clock);
-        g.run_until_stable(3).unwrap();
         assert_eq!(g.value(output[0]), false);
         assert_eq!(g.value(output[1]), false);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
-        g.run_until_stable(2).unwrap();
+        g.pulse_lever(clock);
+        g.assert_propagation(0);
+        assert_eq!(g.value(output[0]), false);
+        assert_eq!(g.value(output[1]), false);
+
+        g.set_lever(enable);
+        g.pulse_lever(clock);
+        g.assert_propagation(1);
         assert_eq!(g.value(output[0]), true);
         assert_eq!(g.value(output[1]), false);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
-        g.run_until_stable(3).unwrap();
+        g.pulse_lever(clock);
+        g.assert_propagation(2);
         assert_eq!(g.value(output[0]), false);
         assert_eq!(g.value(output[1]), true);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
-        g.run_until_stable(2).unwrap();
+        g.pulse_lever(clock);
+        g.assert_propagation(1);
         assert_eq!(g.value(output[0]), true);
         assert_eq!(g.value(output[1]), true);
     }
@@ -105,7 +107,7 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, write, read, reset, input)
+        let output = counter(&mut g, clock, ON, write, read, reset, input)
             .try_into()
             .unwrap();
 
@@ -117,14 +119,12 @@ mod tests {
         assert_eq!(g.collect_u8(&output), 255);
 
         g.set_lever(write);
-        g.set_lever(clock);
-        g.reset_lever(clock);
+        g.pulse_lever(clock);
         g.reset_lever(write);
         g.run_until_stable(2).unwrap();
         assert_eq!(g.collect_u8(&output), val);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
+        g.pulse_lever(clock);
         g.run_until_stable(2).unwrap();
         assert_eq!(g.collect_u8(&output), val + 1);
     }
@@ -139,7 +139,7 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, write, read, reset, input)
+        let output = counter(&mut g, clock, ON, write, read, reset, input)
             .try_into()
             .unwrap();
 
@@ -158,8 +158,7 @@ mod tests {
         }
 
         g.set_lever(reset);
-        g.set_lever(clock);
-        g.reset_lever(clock);
+        g.pulse_lever(clock);
 
         g.assert_propagation(1);
         assert_eq!(g.collect_u8(&output), 0);

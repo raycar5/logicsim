@@ -62,8 +62,8 @@ impl State {
             self.states.reserve(diff as usize);
             self.updated.reserve(diff as usize);
 
-            self.states.extend((0..diff).step_by(1).map(|_| 0));
-            self.updated.extend((0..diff).step_by(1).map(|_| 0));
+            self.states.extend((0..diff).map(|_| 0));
+            self.updated.extend((0..diff).map(|_| 0));
         }
     }
 

@@ -44,8 +44,7 @@ mod tests {
         g.set_lever(write);
         assert_eq!(g.value(output), false);
 
-        g.set_lever(clock);
-        g.reset_lever(clock);
+        g.pulse_lever(clock);
         assert_eq!(g.value(output), false);
 
         g.set_lever(read);
