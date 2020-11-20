@@ -3,10 +3,8 @@ use wires::*;
 fn main() {
     let mut g = GateGraph::new();
 
-    // Adder
     let input1: Vec<_> = constant(1u8);
 
-    //let output = adder(&mut g, cin, &input1, &input2);
     let output = rom(&mut g, &input1, &[4u8, 5u8, 6u8]);
 
     g.init();

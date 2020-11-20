@@ -39,6 +39,7 @@ pub enum GateType {
     On,
     Lever,
     Xor,
+    Xnor,
     Not,
     Or,
     And,
@@ -50,14 +51,15 @@ impl GateType {
         match self {
             Or | Nor => acc || b,
             And | Nand => acc && b,
-            On | Off | Lever | Not | Xor => unreachable!(),
+            Xor | Xnor => acc ^ b,
+            On | Off | Lever | Not => unreachable!(),
         }
     }
     fn init(&self) -> bool {
         match self {
-            Or | Nor => false,
+            Or | Nor | Xor | Xnor => false,
             And | Nand => true,
-            On | Off | Lever | Not | Xor => unreachable!(),
+            On | Off | Lever | Not => unreachable!(),
         }
     }
     fn is_lever(&self) -> bool {
@@ -68,7 +70,7 @@ impl GateType {
         }
     }
     fn is_negated(&self) -> bool {
-        if let Nor | Nand | Not = self {
+        if let Nor | Nand | Not | Xnor = self {
             true
         } else {
             false
@@ -92,6 +94,11 @@ impl Gate {
         }
     }
 }
+#[cfg(feature = "debug_gate_names")]
+struct Probe {
+    name: String,
+    bits: SmallVec<[GateIndex; 1]>,
+}
 
 pub struct GateGraph {
     nodes: Slab<Gate>,
@@ -101,10 +108,11 @@ pub struct GateGraph {
     state: State,
     #[cfg(feature = "debug_gate_names")]
     names: HashMap<GateIndex, String>,
+    #[cfg(feature = "debug_gate_names")]
+    probes: HashMap<GateIndex, Probe>,
 }
 impl GateGraph {
     pub fn new() -> GateGraph {
-        println!("{}", std::mem::size_of::<Gate>());
         let mut nodes = Slab::new();
         nodes.insert(Gate {
             ty: Off,
@@ -124,6 +132,8 @@ impl GateGraph {
             propagation_queue: VecDeque::new(),
             #[cfg(feature = "debug_gate_names")]
             names: HashMap::new(),
+            #[cfg(feature = "debug_gate_names")]
+            probes: HashMap::new(),
         }
     }
 
@@ -135,8 +145,7 @@ impl GateGraph {
             On => assert!(false, "ON has no dependencies"),
             Lever => assert!(false, "Lever has no dependencies"),
             Not => assert!(false, "Not has fixed dependencies"),
-            Xor => assert!(false, "Xor has fixed dependencies"),
-            Or | And | Nand | Nor => {
+            Or | Nor | And | Nand | Xor | Xnor => {
                 gate.dependencies.push(new_dep);
                 self.nodes
                     .get_mut(new_dep.idx)
@@ -155,10 +164,7 @@ impl GateGraph {
             Not => {
                 assert!(x == 0, "Not only has one dependency");
             }
-            Xor => {
-                assert!(x < 2, "Xor has only 2 dependencies");
-            }
-            Or | And | Nand | Nor => {}
+            Or | Nor | And | Nand | Xor | Xnor => {}
         }
 
         let old_dep = std::mem::replace(&mut gate.dependencies[x], new_dep);
@@ -217,6 +223,11 @@ impl GateGraph {
         self.create_gate(idx, &[d0, d1], name);
         idx
     }
+    pub fn nor1<S: Into<String>>(&mut self, d0: GateIndex, name: S) -> GateIndex {
+        let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![d0])));
+        self.create_gate(idx, &[d0], name);
+        idx
+    }
     pub fn nor2<S: Into<String>>(&mut self, d0: GateIndex, d1: GateIndex, name: S) -> GateIndex {
         let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![d0, d1])));
         self.create_gate(idx, &[d0, d1], name);
@@ -244,7 +255,7 @@ impl GateGraph {
     }
 
     // Main logic.
-    fn update_inner(&mut self) {
+    fn tick_inner(&mut self) {
         while let Some(idx) = self.propagation_queue.pop_front() {
             let node = self.nodes.get(idx.idx).unwrap();
             let new_state = match node.ty {
@@ -252,11 +263,7 @@ impl GateGraph {
                 Off => false,
                 Lever => self.state.get_state(idx),
                 Not => !self.state.get_state(node.dependencies[0]),
-                Xor => {
-                    self.state.get_state(node.dependencies[0])
-                        ^ self.state.get_state(node.dependencies[1])
-                }
-                Or | Nand | And | Nor => {
+                Or | Nor | And | Nand | Xor | Xnor => {
                     let mut new_state = if node.dependencies.is_empty() {
                         false
                     } else {
@@ -278,22 +285,38 @@ impl GateGraph {
                 continue;
             }
             self.state.set(idx, new_state);
+            if cfg!(feature = "debug_gate_names") {
+                if let Some(probe) = self.probes.get(&idx) {
+                    match probe.bits.len() {
+                        0 => {}
+                        1 => println!("{}:{}", probe.name, new_state),
+                        8 => {
+                            println!(
+                                "{}:{}",
+                                probe.name,
+                                self.collect_u8(&probe.bits[0..8].try_into().unwrap())
+                            )
+                        }
+                        _ => unimplemented!(),
+                    }
+                }
+            }
             self.propagation_queue
                 .extend(node.dependents.iter().map(|i| gi!(i)))
         }
     }
-    fn update(&mut self) {
+    pub fn tick(&mut self) {
         while let Some(pending) = &self.pending_updates.pop() {
             self.state.tick();
             self.propagation_queue.push_back(*pending);
-            self.update_inner()
+            self.tick_inner()
         }
         self.pending_updates.extend(
             self.next_pending_updates
                 .drain(0..self.next_pending_updates.len()),
         )
     }
-    pub fn value(&mut self, idx: GateIndex) -> bool {
+    pub fn value(&self, idx: GateIndex) -> bool {
         self.state.get_state(idx)
     }
     pub fn init(&mut self) {
@@ -304,7 +327,7 @@ impl GateGraph {
                 continue;
             }
             self.propagation_queue.push_back(idx);
-            self.update_inner();
+            self.tick_inner();
         }
         self.pending_updates.extend(
             self.next_pending_updates
@@ -316,7 +339,7 @@ impl GateGraph {
             if self.pending_updates.is_empty() {
                 return Ok(i);
             }
-            self.update();
+            self.tick();
         }
         Err(())
     }
@@ -340,11 +363,11 @@ impl GateGraph {
         for (lever, value) in levers.iter().zip(values) {
             self.update_lever_inner(*lever, value);
         }
-        self.update()
+        self.tick()
     }
     pub fn update_lever(&mut self, lever: GateIndex, value: bool) {
         self.update_lever_inner(lever, value);
-        self.update()
+        self.tick()
     }
     pub fn set_lever(&mut self, lever: GateIndex) {
         self.update_lever(lever, true)
@@ -364,11 +387,11 @@ impl GateGraph {
 
         self.state.set(lever, !self.state.get_state(lever));
         self.pending_updates.push(lever);
-        self.update();
+        self.tick();
     }
 
     // Output operations.
-    pub fn collect_u8(&mut self, outputs: &[GateIndex; 8]) -> u8 {
+    pub fn collect_u8(&self, outputs: &[GateIndex; 8]) -> u8 {
         let mut output = 0;
         let mut mask = 1u8;
 
@@ -382,7 +405,7 @@ impl GateGraph {
 
         output
     }
-    pub fn collect_u128(&mut self, outputs: &[GateIndex; 128]) -> u128 {
+    pub fn collect_u128(&self, outputs: &[GateIndex; 128]) -> u128 {
         let mut output = 0;
         let mut mask = 1u128;
 
@@ -402,6 +425,50 @@ impl GateGraph {
     }
     pub fn len(&self) -> usize {
         self.nodes.len()
+    }
+
+    // Debug operations.
+    #[cfg(feature = "debug_gate_names")]
+    pub fn probe<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) {
+        let name = name.into();
+        for bit in bits {
+            self.probes.insert(
+                *bit,
+                Probe {
+                    name: name.clone(),
+                    bits: SmallVec::from_slice(bits),
+                },
+            );
+        }
+    }
+
+    // Test operations.
+    #[cfg(test)]
+    pub fn assert_propagation(&mut self, expected: usize) {
+        let actual = self
+            .run_until_stable(1000)
+            .expect("Circuit didn't stabilize after 1000 ticks");
+
+        assert!(
+            actual == expected,
+            "Circuit stabilized after {} ticks, expected: {}",
+            actual,
+            expected
+        );
+    }
+    #[cfg(test)]
+    pub fn assert_propagation_range(&mut self, expected: std::ops::Range<usize>) {
+        let actual = self
+            .run_until_stable(1000)
+            .expect("Circuit didn't stabilize after 1000 ticks");
+
+        assert!(
+            expected.contains(&actual),
+            "Circuit stabilized after {} ticks, which is outside the range: {}..{}",
+            actual,
+            expected.start,
+            expected.end
+        );
     }
 }
 
@@ -450,7 +517,7 @@ mod tests {
         let mut a = true;
         for _ in 0..10 {
             assert_eq!(g.value(n1), a);
-            g.update();
+            g.tick();
             a = !a;
         }
 
