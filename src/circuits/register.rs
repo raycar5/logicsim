@@ -46,18 +46,31 @@ mod tests {
 
         g.set_lever(write);
 
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.collect_u8(out), 0);
 
         g.set_lever(clock);
-
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.collect_u8(out), 0);
 
         g.reset_lever(clock);
         g.set_lever(read);
-
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.collect_u8(out), value);
+
+        g.reset_lever(read);
+        assert_eq!(g.collect_u8(out), 0);
+
+        g.set_lever(read);
+        assert_eq!(g.collect_u8(out), value);
+
+        input.set(&mut g, value ^ value);
+        assert_eq!(g.collect_u8(out), value);
+
+        g.set_lever(write);
+        assert_eq!(g.collect_u8(out), value);
+
+        g.set_lever(clock);
+        assert_eq!(g.collect_u8(out), value ^ value);
+
+        g.reset_lever(clock);
+        assert_eq!(g.collect_u8(out), value ^ value);
     }
 }

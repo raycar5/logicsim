@@ -42,34 +42,26 @@ mod tests {
 
         g.set_lever(d);
         g.set_lever(write);
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.value(output), false);
 
         g.set_lever(clock);
         g.reset_lever(clock);
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.value(output), false);
 
         g.set_lever(read);
-
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.value(output), true);
 
         g.reset_lever(d);
         g.reset_lever(read);
         g.reset_lever(write);
-
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.value(output), false);
 
         g.set_lever(read);
-        g.run_until_stable(10).unwrap();
         assert_eq!(g.value(output), true);
 
         g.set_lever(write);
         g.set_lever(clock);
 
-        g.run_until_stable(10).unwrap();
         g.reset_lever(write);
         g.reset_lever(clock);
 
