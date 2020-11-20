@@ -19,6 +19,13 @@ pub fn constant<T>(c: T) -> Vec<GateIndex> {
     out
 }
 
+pub fn zeros(n: usize) -> Vec<GateIndex> {
+    (0..n).map(|_| OFF).collect()
+}
+pub fn ones(n: usize) -> Vec<GateIndex> {
+    (0..n).map(|_| ON).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

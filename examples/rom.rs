@@ -4,10 +4,12 @@ fn main() {
     let mut g = GateGraph::new();
 
     let input1: Vec<_> = constant(1u8);
+    let rom_out = g.lever("rom_out");
 
-    let output = rom(&mut g, &input1, &[4u8, 5u8, 6u8]);
+    let output = rom(&mut g, rom_out, &input1, &[4u8, 5u8, 6u8]);
 
     g.init();
+    g.set_lever(rom_out);
 
     let t = std::time::Instant::now();
     let ticks = g.run_until_stable(1000).unwrap();

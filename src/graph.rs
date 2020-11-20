@@ -223,6 +223,11 @@ impl GateGraph {
         self.create_gate(idx, &[d0, d1], name);
         idx
     }
+    pub fn nor<S: Into<String>>(&mut self, name: S) -> GateIndex {
+        let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![])));
+        self.create_gate(idx, &[], name);
+        idx
+    }
     pub fn nor1<S: Into<String>>(&mut self, d0: GateIndex, name: S) -> GateIndex {
         let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![d0])));
         self.create_gate(idx, &[d0], name);
@@ -388,6 +393,10 @@ impl GateGraph {
         self.state.set(lever, !self.state.get_state(lever));
         self.pending_updates.push(lever);
         self.tick();
+    }
+    pub fn pulse_lever(&mut self, lever: GateIndex) {
+        self.set_lever(lever);
+        self.reset_lever(lever);
     }
 
     // Output operations.
