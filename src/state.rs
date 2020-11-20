@@ -1,3 +1,4 @@
+use crate::bititer::word_mask_64;
 use crate::graph::NodeIndex;
 use pretty_hex::*;
 #[derive(Hash)]
@@ -5,25 +6,20 @@ pub struct State {
     states: Vec<u64>,
     updated: Vec<u64>,
 }
-fn word_mask(index: usize) -> (usize, u64) {
-    let word = index / 64;
-    let mask = 1 << (index % 64);
-    (word, mask)
-}
 impl State {
-    pub fn new(size: usize) -> State {
-        let len = size / 64;
-        let mut states = Vec::new();
-        let mut updated = Vec::new();
-
-        states.reserve(len);
-        updated.reserve(len);
+    pub fn new() -> State {
+        let states = Vec::new();
+        let updated = Vec::new();
 
         State { states, updated }
     }
+    pub fn reserve(&mut self, n: usize) {
+        self.states.reserve(n / 64);
+        self.updated.reserve(n / 64);
+    }
     #[inline(always)]
     fn get_from_bit_vec(v: &Vec<u64>, real_index: usize) -> bool {
-        let (word_index, mask) = word_mask(real_index);
+        let (word_index, mask) = word_mask_64(real_index);
         let word = v.get(word_index);
         if let Some(word) = word {
             word & mask != 0
@@ -44,9 +40,6 @@ impl State {
     }
 
     pub fn get_updated(&self, index: NodeIndex) -> bool {
-        if index.is_later() {
-            panic!("index: {} is LATER", index.idx);
-        }
         if index.is_off() || index.is_on() {
             return true;
         }
@@ -75,7 +68,7 @@ impl State {
     }
 
     pub fn set(&mut self, index: NodeIndex, value: bool) {
-        let (word_index, mask) = word_mask(index.idx);
+        let (word_index, mask) = word_mask_64(index.idx);
 
         self.reserve_for_word(word_index);
 
@@ -91,7 +84,7 @@ impl State {
     }
 
     pub fn set_updated(&mut self, index: NodeIndex) {
-        let (word_index, mask) = word_mask(index.idx);
+        let (word_index, mask) = word_mask_64(index.idx);
         self.reserve_for_word(word_index);
         let updated = &mut self.updated[word_index];
         *updated = *updated | mask;
@@ -120,8 +113,8 @@ mod tests {
 
     #[test]
     fn test_get_set() {
-        for i in 0..100 {
-            let mut state = State::new(1);
+        for i in 2..100 {
+            let mut state = State::new();
             assert_eq!(state.get_state(ni!(i)), false);
             assert_eq!(state.get_updated(ni!(i)), false);
 
@@ -139,8 +132,8 @@ mod tests {
 
     #[test]
     fn test_tick() {
-        let mut state = State::new(1);
-        for i in 0..100 {
+        let mut state = State::new();
+        for i in 2..100 {
             assert_eq!(state.get_state(ni!(i)), false, "index: {}", i);
             assert_eq!(state.get_updated(ni!(i)), false, "index: {}", i);
 
