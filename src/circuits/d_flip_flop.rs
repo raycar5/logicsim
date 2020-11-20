@@ -1,12 +1,12 @@
 use crate::graph::*;
 pub const D_FLIP_FLOP: &str = "d_flip_flop";
 pub fn d_flip_flop(
-    g: &mut BaseNodeGraph,
-    d: NodeIndex,
-    clock: NodeIndex,
-    write: NodeIndex,
-    read: NodeIndex,
-) -> NodeIndex {
+    g: &mut GateGraph,
+    d: GateIndex,
+    clock: GateIndex,
+    write: GateIndex,
+    read: GateIndex,
+) -> GateIndex {
     let input = d;
     let clock = g.and2(clock, write, D_FLIP_FLOP);
     let ninput = g.not1(input, D_FLIP_FLOP);
@@ -27,7 +27,7 @@ mod tests {
 
     #[test]
     fn test_flip_flop() {
-        let mut g = BaseNodeGraph::new();
+        let mut g = GateGraph::new();
 
         let d = g.lever("d");
         let read = g.lever("read");

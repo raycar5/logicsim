@@ -3,12 +3,12 @@ use crate::graph::*;
 pub const REGISTER: &str = "REGISTER";
 
 pub fn register(
-    g: &mut BaseNodeGraph,
-    input: &[NodeIndex],
-    clock: NodeIndex,
-    write: NodeIndex,
-    read: NodeIndex,
-) -> Vec<NodeIndex> {
+    g: &mut GateGraph,
+    input: &[GateIndex],
+    clock: GateIndex,
+    write: GateIndex,
+    read: GateIndex,
+) -> Vec<GateIndex> {
     let width = input.len();
     let mut out = Vec::new();
     out.reserve(width);
@@ -25,7 +25,7 @@ mod tests {
 
     #[test]
     fn test_register() {
-        let mut g = BaseNodeGraph::new();
+        let mut g = GateGraph::new();
         let value = 3u8;
 
         let input = WordInput::new(&mut g, 8);

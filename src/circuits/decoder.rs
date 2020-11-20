@@ -2,11 +2,11 @@ use crate::bititer::BitIter;
 use crate::graph::*;
 
 pub const DECODER: &str = "decoder";
-pub fn decoder(g: &mut BaseNodeGraph, address: &[NodeIndex]) -> Vec<NodeIndex> {
+pub fn decoder(g: &mut GateGraph, address: &[GateIndex]) -> Vec<GateIndex> {
     let mut out = Vec::new();
     out.reserve(2usize.pow(address.len() as u32));
 
-    let naddress: Vec<NodeIndex> = address.iter().map(|bit| g.not1(*bit, DECODER)).collect();
+    let naddress: Vec<GateIndex> = address.iter().map(|bit| g.not1(*bit, DECODER)).collect();
 
     for i in 0..2usize.pow(address.len() as u32) {
         let output = g.and(DECODER);
@@ -29,7 +29,7 @@ mod tests {
 
     #[test]
     fn test_decoder() {
-        let mut g = BaseNodeGraph::new();
+        let mut g = GateGraph::new();
         let c = WordInput::new(&mut g, 8);
         let out = decoder(&mut g, &c.bits());
 
