@@ -25,7 +25,7 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        let mut g = GateGraph::new();
+        let g = GateGraph::new();
 
         let constants = [0, 0b1u8, 0b10010010];
         let results = [

@@ -3,6 +3,7 @@ use crate::graph::*;
 
 pub const COUNTER: &str = "counter";
 
+// COUNTS ON THE FALLING EDGE
 pub fn counter(
     g: &mut GateGraph,
     clock: GateIndex,

@@ -1,8 +1,8 @@
-use super::adder;
 use crate::graph::*;
 
 pub const JK_FLIP_FLOP: &str = "jk_flip_flop";
 
+// UPDATES ON THE FALLING EDGE
 pub fn jk_flip_flop(
     g: &mut GateGraph,
     reset: GateIndex,
