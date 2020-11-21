@@ -1,7 +1,9 @@
+use super::Wire;
 use crate::graph::*;
 
 pub const BUS: &str = "BUS";
 
+#[derive(Debug, Clone)]
 pub struct Bus {
     bits: Vec<GateIndex>,
 }
@@ -24,6 +26,9 @@ impl Bus {
             g.dpush(*or, *bit);
         }
     }
+    pub fn len(&self) -> usize {
+        self.bits.len()
+    }
     pub fn bits(&self) -> &[GateIndex] {
         &self.bits
     }
@@ -32,5 +37,11 @@ impl Bus {
     }
     pub fn b0(&self) -> GateIndex {
         self.bits[0]
+    }
+    pub fn split_wires(&self, g: &mut GateGraph, other: &mut [Wire]) {
+        assert_eq!(self.len(), other.len());
+        for (bit, wire) in self.bits.iter().zip(other) {
+            wire.connect(g, *bit)
+        }
     }
 }

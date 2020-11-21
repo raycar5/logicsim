@@ -1,8 +1,30 @@
-use super::{bus_multiplexer, jk_flip_flop, multiplexer, zeros};
+use super::{adder, bus_multiplexer, jk_flip_flop, multiplexer, register, zeros, Bus};
 use crate::graph::*;
 
 pub const COUNTER: &str = "counter";
 
+pub fn other_counter(
+    g: &mut GateGraph,
+    clock: GateIndex,
+    enable: GateIndex,
+    write: GateIndex,
+    read: GateIndex,
+    reset: GateIndex,
+    input: &[GateIndex],
+) -> Vec<GateIndex> {
+    let cin = enable;
+
+    let mut adder_input = Bus::new(g, input.len());
+    let adder_output = adder(g, cin, adder_input.bits(), &zeros(input.len()));
+    let nclock = g.not1(clock, COUNTER);
+
+    let master_register_input = bus_multiplexer(g, &[write], &[&adder_output, input]);
+    let master_register_output = register(g, &master_register_input, nclock, ON, ON, reset);
+    let slave_register_output = register(g, &master_register_output, clock, ON, ON, reset);
+    adder_input.connect(g, &slave_register_output);
+
+    bus_multiplexer(g, &[read], &[&zeros(input.len()), &slave_register_output])
+}
 // COUNTS ON THE FALLING EDGE
 pub fn counter(
     g: &mut GateGraph,
@@ -59,7 +81,7 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, enable, write, read, reset, input);
+        let output = other_counter(&mut g, clock, enable, write, read, reset, input);
 
         g.init();
         g.run_until_stable(100).unwrap();
@@ -87,7 +109,7 @@ mod tests {
         assert_eq!(g.value(output[1]), false);
 
         g.pulse_lever(clock);
-        g.assert_propagation(2);
+        g.assert_propagation(1);
         assert_eq!(g.value(output[0]), false);
         assert_eq!(g.value(output[1]), true);
 
