@@ -153,8 +153,7 @@ pub fn setup_control_logic(
     signals.ic_reset().clone().connect(g, reset);
 
     let nclock = g.not1(clock, "nclock");
-    let instruction_counter =
-        other_counter(g, nclock, ON, signals.ic_reset().bit(), ON, OFF, &zeros(3));
+    let instruction_counter = counter(g, nclock, ON, signals.ic_reset().bit(), ON, OFF, &zeros(3));
 
     let microinstruction_input: Vec<_> = instruction_counter
         .into_iter()
