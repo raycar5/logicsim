@@ -1,10 +1,11 @@
+use num_enum::TryFromPrimitive;
 pub const OPCODE_LENGTH: u8 = 4;
 pub const DATA_LENGTH: u8 = 4;
 #[repr(u8)]
-#[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive)]
 pub enum InstructionType {
-    // Halt
-    NOP,
+    // Do nothing
+    NOP = 0,
     // Load register A from ram address.
     LDA,
     // Load register A from rom address.
@@ -19,6 +20,12 @@ pub enum InstructionType {
     LIB,
     // Add the contents of register A and B and save the result in register A.
     ADD,
+    // Load the result of the alu to the output register.
+    OUT,
+    // Set the program counter to address.
+    JMP,
+    // Set the program counter to address if register A is zero.
+    JZ,
 }
 impl InstructionType {
     pub fn with_data(&self, data: u8) -> Instruction {
