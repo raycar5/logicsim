@@ -1,5 +1,5 @@
 use super::instruction_set::{InstructionType, DATA_LENGTH, OPCODE_LENGTH};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use wires::*;
 
 control_signal_set!(

@@ -1,4 +1,4 @@
-use super::{adder, bus_multiplexer, jk_flip_flop, multiplexer, register, zeros, Bus};
+use super::{adder, bus_multiplexer, register, zeros, Bus};
 use crate::graph::*;
 
 pub const COUNTER: &str = "counter";
