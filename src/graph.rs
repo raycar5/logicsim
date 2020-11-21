@@ -1,8 +1,7 @@
 use crate::slab::Slab;
 use crate::state::State;
 use smallvec::{smallvec, SmallVec};
-use std::collections::{HashMap, VecDeque};
-use std::convert::TryInto;
+use std::collections::VecDeque;
 use std::fmt::{self, Display, Formatter};
 use tinyset::SetUsize;
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
@@ -188,6 +187,7 @@ impl GateGraph {
     }
 
     // Gate operations.
+    #[allow(unused_variables)]
     fn create_gate<S: Into<String>>(&mut self, idx: GateIndex, deps: &[GateIndex], name: S) {
         for dep in deps {
             self.nodes
