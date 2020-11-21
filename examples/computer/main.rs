@@ -19,20 +19,16 @@ fn main() {
     // ROM INPUT
     use instruction_set::InstructionType::*;
     let rom_data: Vec<u8> = vec![
-        LIA.with_data(0).into(),
-        JZ.with_data(8).into(),
+        LIA.with_data(1).into(),
+        JZ.with_data(4).into(),
         LIA.with_data(10).into(),
-        OUT.with_0().into(),
-        0,
-        0,
-        0,
-        20,
+        JMP.with_data(5).into(),
         LIA.with_data(5).into(),
         OUT.with_0().into(),
     ];
 
     let signals = ControlSignalsSet::new(g);
-    let pc_output = other_counter(
+    let pc_output = counter(
         g,
         clock.bit(),
         signals.pc_enable().bit(),
