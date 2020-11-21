@@ -289,18 +289,16 @@ impl GateGraph {
                 }
                 continue;
             }
+            #[cfg(feature = "debug_gate_names")]
+            let old_state = self.state.get_state(idx);
             self.state.set(idx, new_state);
-            if cfg!(feature = "debug_gate_names") {
+            if cfg!(feature = "debug_gate_names") && old_state != new_state {
                 if let Some(probe) = self.probes.get(&idx) {
                     match probe.bits.len() {
                         0 => {}
                         1 => println!("{}:{}", probe.name, new_state),
-                        8 => {
-                            println!(
-                                "{}:{}",
-                                probe.name,
-                                self.collect_u8(&probe.bits[0..8].try_into().unwrap())
-                            )
+                        2..=8 => {
+                            println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
                         }
                         _ => unimplemented!(),
                     }
@@ -348,6 +346,7 @@ impl GateGraph {
         }
         Err(())
     }
+    pub fn optimize(&mut self) {}
 
     // Input operations.
     fn update_lever_inner(&mut self, lever: GateIndex, value: bool) {
@@ -399,12 +398,36 @@ impl GateGraph {
         self.reset_lever(lever);
     }
 
+    pub fn set_lever_stable(&mut self, lever: GateIndex) {
+        self.set_lever(lever);
+        self.run_until_stable(10).unwrap();
+    }
+    pub fn reset_lever_stable(&mut self, lever: GateIndex) {
+        self.reset_lever(lever);
+        self.run_until_stable(10).unwrap();
+    }
+    pub fn flip_lever_stable(&mut self, lever: GateIndex) {
+        self.flip_lever(lever);
+        self.run_until_stable(10).unwrap();
+    }
+    pub fn pulse_lever_stable(&mut self, lever: GateIndex) {
+        self.set_lever(lever);
+        self.run_until_stable(10).unwrap();
+        self.reset_lever(lever);
+        self.run_until_stable(10).unwrap();
+    }
+
     // Output operations.
     pub fn collect_u8(&self, outputs: &[GateIndex; 8]) -> u8 {
+        self.collect_u8_lossy(outputs)
+    }
+    // Collect only first 8 bits from a larger bus.
+    // Or only some bits from a smaller bus.
+    pub fn collect_u8_lossy(&self, outputs: &[GateIndex]) -> u8 {
         let mut output = 0;
         let mut mask = 1u8;
 
-        for bit in outputs {
+        for bit in outputs.iter().take(8) {
             if self.value(*bit) {
                 output = output | mask
             }
@@ -427,10 +450,6 @@ impl GateGraph {
         }
 
         output
-    }
-    // Collect only first 8 bits from a larger bus.
-    pub fn collect_u8_lossy(&mut self, outputs: &[GateIndex]) -> u8 {
-        self.collect_u8(outputs[0..8].try_into().unwrap())
     }
     pub fn len(&self) -> usize {
         self.nodes.len()

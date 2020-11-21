@@ -1,5 +1,6 @@
 #[macro_use]
 pub mod graph;
+extern crate concat_idents;
 mod bititer;
 pub mod circuits;
 pub mod slab;
