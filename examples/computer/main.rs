@@ -12,22 +12,23 @@ fn main() {
     let mut bus = Bus::new(g, bits);
     wire!(g, clock);
     wire!(g, reset);
+    let clock_lever = clock.lever(g);
+    let reset_lever = reset.lever(g);
     let nclock = g.not1(clock.bit(), "nclock");
-    // TODO
+
+    // ROM INPUT
     use instruction_set::InstructionType::*;
     let rom_data: Vec<u8> = vec![
-        LOA.with_data(10).into(),
-        LOB.with_data(11).into(),
-        ADD.with_0().into(),
+        LIA.with_data(0).into(),
+        JZ.with_data(8).into(),
+        LIA.with_data(10).into(),
+        OUT.with_0().into(),
         0,
         0,
         0,
-        0,
-        0,
-        0,
-        0,
-        3,
-        -5i8 as u8,
+        20,
+        LIA.with_data(5).into(),
+        OUT.with_0().into(),
     ];
 
     let signals = ControlSignalsSet::new(g);
@@ -94,9 +95,24 @@ fn main() {
     );
     bus.connect(g, &ram_output);
 
-    let clock_lever = clock.lever(g);
-    let reset_lever = reset.lever(g);
-    control_logic::setup_control_logic(g, bits, bus.clone(), clock.bit(), reset.bit(), signals);
+    let rego_output = register(
+        g,
+        bus.bits(),
+        clock.bit(),
+        signals.rego_in().bit(),
+        ON,
+        reset.bit(),
+    );
+
+    let rega_zero = bus_multiplexer(g, &rega_output, &[&ones(1)]);
+    control_logic::setup_control_logic(
+        g,
+        rega_zero[0],
+        bus.clone(),
+        clock.bit(),
+        reset.bit(),
+        signals,
+    );
 
     let mut t = std::time::Instant::now();
     g.init();
@@ -109,15 +125,13 @@ fn main() {
     println!("RESET");
     println!("");
 
-    for i in 0..30 {
+    for i in 0..50 {
         g.flip_lever_stable(clock_lever);
 
         if i % 2 == 1 {
             println!(
-                "bus:{},rega:{}, regb:{}, {}ms/clock",
-                g.collect_u8_lossy(bus.bits()),
-                g.collect_u8_lossy(&rega_output) as i8,
-                g.collect_u8_lossy(&regb_output) as i8,
+                "output:{}, {}ms/clock",
+                g.collect_u8_lossy(&rego_output) as i8,
                 t.elapsed().as_millis()
             );
             t = std::time::Instant::now();

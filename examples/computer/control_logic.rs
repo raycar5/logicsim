@@ -1,6 +1,5 @@
-use super::instruction_set::InstructionType;
-use std::convert::TryInto;
-use strum::IntoEnumIterator;
+use super::instruction_set::{InstructionType, DATA_LENGTH, OPCODE_LENGTH};
+use std::convert::{TryFrom, TryInto};
 use wires::*;
 
 control_signal_set!(
@@ -19,38 +18,41 @@ control_signal_set!(
     address_reg_in,
     ir_in,
     ir_data_out,
-    ic_reset
+    ic_reset,
+    rego_in
 );
+// 16
 
 //
-// | INSTRUCTION COUNTER | INSTRUCTION OPCODE |
-// |         3 bits      |        4 bits      |
-// |        b0 b1 b2     |      b3 b4 b5 b6   |
+// | INSTRUCTION COUNTER | IS REGA ZERO | INSTRUCTION OPCODE |
+// |         3 bits      |     1bit     |        4 bits      |
+// |        b0 b1 b2     |      b3      |      b4 b5 b6 b7   |
 fn build_microinstructions() -> Vec<u16> {
-    let mut out = vec![0; 2usize.pow(7)];
+    let mut out = vec![0; 2usize.pow(8)];
     // FIXED SECTION
     let instruction_load = [
         signals_to_bits!(ControlSignalsSet, pc_out, address_reg_in),
         signals_to_bits!(ControlSignalsSet, rom_out, ir_in, pc_enable),
     ];
 
-    let microinstructions_per_opcode: Vec<_> = InstructionType::iter()
-        .map(microinstructions_from_instruction)
-        .collect();
-
     for instruction_step in 0..2usize.pow(3) {
-        for opcode in 0..2usize.pow(4) {
-            // the first 2 microinstructions are always the load
-            let input = instruction_step | (opcode << 3);
-            if instruction_step < 2 {
-                out[input as usize] = instruction_load[instruction_step as usize];
-            } else {
-                let relative_i = instruction_step - 2;
-                out[input] = microinstructions_per_opcode
-                    .get(opcode)
-                    .and_then(|ins| ins.get(relative_i))
-                    .copied()
-                    .unwrap_or(0);
+        for rega_zero in 0..2 {
+            let is_rega_zero = rega_zero == 1;
+            for opcode in 0..2usize.pow(4) {
+                // the first 2 microinstructions are always the load
+                let input = instruction_step | (rega_zero << 3) | (opcode << 4);
+                if instruction_step < 2 {
+                    out[input as usize] = instruction_load[instruction_step as usize];
+                } else {
+                    let relative_i = instruction_step - 2;
+                    if let (Ok(instruction), 0..=2) = ((opcode as u8).try_into(), relative_i) {
+                        out[input] = microinstructions_from_instruction(
+                            instruction,
+                            relative_i,
+                            is_rega_zero,
+                        )
+                    }
+                }
             }
         }
     }
@@ -58,9 +60,13 @@ fn build_microinstructions() -> Vec<u16> {
     out
 }
 
-fn microinstructions_from_instruction(instruction: InstructionType) -> [u16; 3] {
+fn microinstructions_from_instruction(
+    instruction: InstructionType,
+    instruction_step: usize,
+    is_rega_zero: bool,
+) -> u16 {
     use InstructionType::*;
-    match instruction {
+    let micro = match instruction {
         NOP => [signals_to_bits!(ControlSignalsSet, ic_reset), 0, 0],
         LDA => [
             signals_to_bits!(ControlSignalsSet, ir_data_out, address_reg_in),
@@ -97,12 +103,32 @@ fn microinstructions_from_instruction(instruction: InstructionType) -> [u16; 3] 
             0,
             0,
         ],
-    }
+        OUT => [
+            signals_to_bits!(ControlSignalsSet, alu_out, rego_in, ic_reset),
+            0,
+            0,
+        ],
+        JMP => [
+            signals_to_bits!(ControlSignalsSet, ir_data_out, jmp, ic_reset),
+            0,
+            0,
+        ],
+        JZ => [
+            if is_rega_zero {
+                signals_to_bits!(ControlSignalsSet, ir_data_out, jmp, ic_reset)
+            } else {
+                signals_to_bits!(ControlSignalsSet, ic_reset)
+            },
+            0,
+            0,
+        ],
+    };
+    micro[instruction_step]
 }
 
 pub fn setup_control_logic(
     g: &mut GateGraph,
-    bits: usize,
+    rega_zero: GateIndex,
     mut bus: Bus,
     clock: GateIndex,
     reset: GateIndex,
@@ -114,8 +140,12 @@ pub fn setup_control_logic(
         g,
         &[signals.ir_data_out().bit()],
         &[
-            &zeros(bits / 2),
-            &ir_output.iter().skip(bits / 2).copied().collect::<Vec<_>>(),
+            &zeros(DATA_LENGTH as usize),
+            &ir_output
+                .iter()
+                .skip(OPCODE_LENGTH as usize)
+                .copied()
+                .collect::<Vec<_>>(),
         ],
     );
     bus.connect_some(g, &ir_data_output);
@@ -128,7 +158,8 @@ pub fn setup_control_logic(
 
     let microinstruction_input: Vec<_> = instruction_counter
         .into_iter()
-        .chain(ir_output.iter().take(bits / 2).copied())
+        .chain(std::iter::once(rega_zero))
+        .chain(ir_output.iter().take(OPCODE_LENGTH as usize).copied())
         .collect();
 
     let microinstruction_rom_output =

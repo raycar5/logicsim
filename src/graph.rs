@@ -196,9 +196,8 @@ impl GateGraph {
                 .dependents
                 .insert(idx.idx);
         }
-        if cfg!(feature = "debug_gate_names") {
-            self.names.insert(idx, name.into());
-        }
+        #[cfg(feature = "debug_gate_names")]
+        self.names.insert(idx, name.into());
     }
     pub fn lever<S: Into<String>>(&mut self, name: S) -> GateIndex {
         let idx = GateIndex::new(self.nodes.insert(Gate::new(Lever, smallvec![])));
@@ -292,7 +291,8 @@ impl GateGraph {
             #[cfg(feature = "debug_gate_names")]
             let old_state = self.state.get_state(idx);
             self.state.set(idx, new_state);
-            if cfg!(feature = "debug_gate_names") && old_state != new_state {
+            #[cfg(feature = "debug_gate_names")]
+            if old_state != new_state {
                 if let Some(probe) = self.probes.get(&idx) {
                     match probe.bits.len() {
                         0 => {}
