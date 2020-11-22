@@ -29,11 +29,10 @@ pub fn counter(
 mod tests {
     use super::super::constant;
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn test_counter_counts() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let val = 34u8;
         let input = &constant(val)[0..2];
@@ -43,7 +42,8 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, enable, write, read, reset, input);
+        let c = counter(g, clock, enable, write, read, reset, input);
+        let output = g.get(&c, "counter");
 
         g.init();
         g.run_until_stable(100).unwrap();
@@ -52,37 +52,37 @@ mod tests {
         g.pulse_lever(clock);
         g.reset_lever(reset);
 
-        assert_eq!(g.value(output[0]), false);
-        assert_eq!(g.value(output[1]), false);
+        assert_eq!(output.bx(g, 0), false);
+        assert_eq!(output.bx(g, 1), false);
 
         g.set_lever(read);
-        assert_eq!(g.value(output[0]), false);
-        assert_eq!(g.value(output[1]), false);
+        assert_eq!(output.bx(g, 0), false);
+        assert_eq!(output.bx(g, 1), false);
 
         g.pulse_lever(clock);
         g.assert_propagation(0);
-        assert_eq!(g.value(output[0]), false);
-        assert_eq!(g.value(output[1]), false);
+        assert_eq!(output.bx(g, 0), false);
+        assert_eq!(output.bx(g, 1), false);
 
         g.set_lever(enable);
         g.pulse_lever(clock);
         g.assert_propagation(1);
-        assert_eq!(g.value(output[0]), true);
-        assert_eq!(g.value(output[1]), false);
+        assert_eq!(output.bx(g, 0), true);
+        assert_eq!(output.bx(g, 1), false);
 
         g.pulse_lever(clock);
         g.assert_propagation(1);
-        assert_eq!(g.value(output[0]), false);
-        assert_eq!(g.value(output[1]), true);
+        assert_eq!(output.bx(g, 0), false);
+        assert_eq!(output.bx(g, 1), true);
 
         g.pulse_lever(clock);
         g.assert_propagation(1);
-        assert_eq!(g.value(output[0]), true);
-        assert_eq!(g.value(output[1]), true);
+        assert_eq!(output.bx(g, 0), true);
+        assert_eq!(output.bx(g, 1), true);
     }
     #[test]
     fn test_counter_write() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let val = 34u8;
         let input = &constant(val);
@@ -91,30 +91,29 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, ON, write, read, reset, input)
-            .try_into()
-            .unwrap();
+        let c = counter(g, clock, ON, write, read, reset, input);
+        let output = g.get(&c, "counter");
 
         g.init();
         g.run_until_stable(100).unwrap();
 
         g.set_lever(read);
 
-        assert_eq!(g.collect_u8(&output), 255);
+        assert_eq!(output.u8(g), 255);
 
         g.set_lever(write);
         g.pulse_lever(clock);
         g.reset_lever(write);
-        g.run_until_stable(2).unwrap();
-        assert_eq!(g.collect_u8(&output), val);
+        g.assert_propagation(2);
+        assert_eq!(output.u8(g), val);
 
         g.pulse_lever(clock);
         g.run_until_stable(2).unwrap();
-        assert_eq!(g.collect_u8(&output), val + 1);
+        assert_eq!(output.u8(g), val + 1);
     }
     #[test]
     fn test_counter_reset() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let val = 34u8;
         let input = &constant(val);
@@ -123,28 +122,27 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let output = counter(&mut g, clock, ON, write, read, reset, input)
-            .try_into()
-            .unwrap();
+        let c = counter(g, clock, ON, write, read, reset, input);
+        let output = g.get(&c, "counter");
 
         g.init();
         g.run_until_stable(100).unwrap();
 
         g.set_lever(read);
 
-        assert_eq!(g.collect_u8(&output), 255);
+        assert_eq!(output.u8(g), 255);
 
         for i in 0..10 {
             g.set_lever(clock);
             g.reset_lever(clock);
             g.assert_propagation_range(1..3);
-            assert_eq!(g.collect_u8(&output), i);
+            assert_eq!(output.u8(g), i);
         }
 
         g.set_lever(reset);
         g.pulse_lever(clock);
 
         g.assert_propagation(0);
-        assert_eq!(g.collect_u8(&output), 0);
+        assert_eq!(output.u8(g), 0);
     }
 }

@@ -111,6 +111,7 @@ fn main() {
     );
 
     let mut t = std::time::Instant::now();
+    let output = g.get(&rego_output, "output");
     g.init();
     g.run_until_stable(100).unwrap();
 
@@ -127,7 +128,7 @@ fn main() {
         if i % 2 == 1 {
             println!(
                 "output:{}, {}ms/clock",
-                g.collect_u8_lossy(&rego_output) as i8,
+                output.i8(g),
                 t.elapsed().as_millis()
             );
             t = std::time::Instant::now();

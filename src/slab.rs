@@ -43,6 +43,13 @@ impl<T: Sized> Slab<T> {
             .get(space)
             .and_then(|x| if let Some(item) = x { Some(item) } else { None })
     }
+    pub fn remove(&mut self, space: usize) -> Option<T> {
+        if let Some(position) = self.data.get_mut(space) {
+            self.spaces.push(space);
+            return position.take();
+        }
+        None
+    }
     pub fn len(&self) -> usize {
         self.data.len() - self.spaces.len()
     }

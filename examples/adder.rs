@@ -23,7 +23,7 @@ fn main() {
         input1.set(&mut g, a + i);
         ticks = ticks + 1 + g.run_until_stable(10).unwrap();
 
-        out = g.collect_u128(&output.clone().try_into().unwrap());
+        //out = g.collect_u128(&output.clone().try_into().unwrap());
     }
 
     let d = t.elapsed().as_micros();
