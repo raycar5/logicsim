@@ -43,7 +43,7 @@ mod tests {
         let reset = g.lever("reset");
 
         let c = counter(g, clock, enable, write, read, reset, input);
-        let output = g.get(&c, "counter");
+        let output = g.output(&c, "counter");
 
         g.init();
         g.run_until_stable(100).unwrap();
@@ -92,7 +92,7 @@ mod tests {
         let reset = g.lever("reset");
 
         let c = counter(g, clock, ON, write, read, reset, input);
-        let output = g.get(&c, "counter");
+        let output = g.output(&c, "counter");
 
         g.init();
         g.run_until_stable(100).unwrap();
@@ -123,7 +123,7 @@ mod tests {
         let reset = g.lever("reset");
 
         let c = counter(g, clock, ON, write, read, reset, input);
-        let output = g.get(&c, "counter");
+        let output = g.output(&c, "counter");
 
         g.init();
         g.run_until_stable(100).unwrap();
