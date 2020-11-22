@@ -26,6 +26,10 @@ control_signal_set!(
 );
 // 19
 
+const INSTRUCTION_COUNTER_BITS: u32 = 3;
+const IS_REGA_ZERO_BITS: u32 = 1;
+const IS_REGA_ZERO_OFFSET: u32 = INSTRUCTION_COUNTER_BITS;
+const OPCODE_OFFSET: u32 = IS_REGA_ZERO_OFFSET + IS_REGA_ZERO_BITS;
 // |                 Microinstruction input                  |
 // | INSTRUCTION COUNTER | IS REGA ZERO | INSTRUCTION OPCODE |
 // |         3 bits      |     1bit     |        4 bits      |
@@ -33,25 +37,32 @@ control_signal_set!(
 fn build_microinstructions() -> Vec<u32> {
     let mut out = vec![0; 2usize.pow(8)];
     // FIXED SECTION
-    let instruction_load = [
+    let instruction_fetch = [
         signals_to_bits!(ControlSignalsSet, pc_out, address_reg_in),
         signals_to_bits!(ControlSignalsSet, rom_out, ir_in, pc_enable),
     ];
 
-    for instruction_step in 0..2usize.pow(3) {
-        for rega_zero in 0..2 {
+    for instruction_step in 0..2usize.pow(INSTRUCTION_COUNTER_BITS) {
+        for rega_zero in 0..2usize.pow(IS_REGA_ZERO_BITS) {
             let is_rega_zero = rega_zero == 1;
-            for opcode in 0..2usize.pow(4) {
-                // the first 2 microinstructions are always the instruction fetch.
-                let input = instruction_step | (rega_zero << 3) | (opcode << 4);
+            for opcode in 0..2usize.pow(OPCODE_LENGTH) {
+                let input = instruction_step
+                    | (rega_zero << IS_REGA_ZERO_OFFSET)
+                    | (opcode << OPCODE_OFFSET);
+
+                // The first 2 microinstructions are always the instruction fetch.
                 if instruction_step < 2 {
-                    out[input as usize] = instruction_load[instruction_step as usize];
+                    out[input as usize] = instruction_fetch[instruction_step as usize];
                 } else {
-                    let relative_i = instruction_step - 2;
-                    if let (Ok(instruction), 0..=2) = ((opcode as u8).try_into(), relative_i) {
+                    // Instruction step after fetch.
+                    let relative_instruction_step = instruction_step - 2;
+
+                    if let (Ok(instruction), 0..=2) =
+                        ((opcode as u8).try_into(), relative_instruction_step)
+                    {
                         out[input] = microinstructions_from_instruction(
                             instruction,
-                            relative_i,
+                            relative_instruction_step,
                             is_rega_zero,
                         )
                     }
