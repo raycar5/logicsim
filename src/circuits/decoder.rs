@@ -30,7 +30,7 @@ mod tests {
     #[test]
     fn test_decoder() {
         let g = &mut GateGraph::new();
-        let c = WordInput::new(g, 8);
+        let c = WordInput::new(g, 2);
         let out = decoder(g, &c.bits());
         let out = g.output(&out, "out");
 
