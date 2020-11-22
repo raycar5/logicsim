@@ -58,7 +58,7 @@ mod tests {
         g.set_lever(reset);
         g.pulse_lever(clock);
         g.reset_lever(reset);
-        for a in 0..2u8.pow(address.len() as u32) - 1 {
+        for a in 0..(1 << address.len()) - 1 {
             address.set(&mut g, a);
             assert_eq!(out.u8(g), 0);
         }
@@ -88,7 +88,7 @@ mod tests {
         assert_eq!(out.u8(g), 0);
 
         g.set_lever(write);
-        for a in 0..2u8.pow(address.len() as u32) - 1 {
+        for a in 0..(1 << address.len()) - 1 {
             address.set(g, a);
             input.set(g, a ^ a);
             g.set_lever(clock);
@@ -98,7 +98,7 @@ mod tests {
         g.reset_lever(write);
         g.set_lever(read);
 
-        for a in 0..2u8.pow(address.len() as u32) - 1 {
+        for a in 0..(1 << address.len()) - 1 {
             address.set(g, a);
             assert_eq!(out.u8(g), a ^ a);
         }
