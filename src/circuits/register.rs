@@ -41,6 +41,7 @@ mod tests {
 
         let r = register(&mut g, input.bits(), clock, write, read, reset);
 
+        //let output =
         let out = &r.clone().try_into().unwrap();
         g.init();
 

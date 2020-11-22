@@ -5,7 +5,7 @@ pub const DATA_LENGTH: u8 = 4;
 #[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive)]
 pub enum InstructionType {
     // Do nothing
-    NOP = 0,
+    //NOP = 0,
     // Load register A from ram address.
     LDA,
     // Load register A from rom address.
@@ -22,10 +22,16 @@ pub enum InstructionType {
     LDR,
     // Load register A with the contents of rom pointed to by register B.
     LOR,
+    // Store register A at the address in register B.
+    STR,
+    // Store register A at the immediate address.
+    STI,
     // Swap the contents of register A and B.
     SWP,
     // Add the contents of register A and B and save the result in register A.
     ADD,
+    // Substract the contents of register B from A and save the result in register A.
+    SUB,
     // Load the result of the alu to the output register.
     OUT,
     // Set the program counter to address.
@@ -41,6 +47,11 @@ impl InstructionType {
         Instruction { ty: *self, data: 0 }
     }
 }
+impl Into<u8> for InstructionType {
+    fn into(self) -> u8 {
+        self.with_0().into()
+    }
+}
 
 pub struct Instruction {
     ty: InstructionType,
@@ -49,6 +60,6 @@ pub struct Instruction {
 }
 impl Into<u8> for Instruction {
     fn into(self) -> u8 {
-        self.ty as u8 | (self.data << 4)
+        self.ty as u8 | ((self.data as u8) << OPCODE_LENGTH)
     }
 }
