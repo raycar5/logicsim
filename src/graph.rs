@@ -125,6 +125,9 @@ impl CircuitOutput {
     pub fn i8(&self, g: &GateGraph) -> i8 {
         self.u8(g) as i8
     }
+    pub fn char(&self, g: &GateGraph) -> char {
+        self.u8(g) as char
+    }
     pub fn print_u8(&self, g: &GateGraph) {
         println!("{}: {}", self.name, self.u8(g));
     }
@@ -366,9 +369,14 @@ impl GateGraph {
         self.state.get_state(idx)
     }
     pub fn init(&mut self) {
-        println!("{}", self.len());
+        let old_len = self.len();
         self.optimize();
-        println!("{}", self.len());
+        println!(
+            "Optimized, old size:{}, new size:{}, reduction: {:.1}%",
+            old_len,
+            self.len(),
+            (old_len - self.len()) as f64 / old_len as f64 * 100f64
+        );
         self.state.reserve(self.len());
 
         for idx in self.nodes.iter().map(|(i, _)| gi!(i)).collect::<Vec<_>>() {
@@ -494,7 +502,7 @@ impl GateGraph {
         Some(if output { ON } else { OFF })
     }
     pub fn optimize(&mut self) {
-        // allocated outside main loop
+        // Allocated outside main loop.
         let mut temp_dependents = Vec::new();
         let mut temp_dependencies = Vec::new();
 
