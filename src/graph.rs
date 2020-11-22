@@ -1,9 +1,12 @@
 use crate::slab::Slab;
 use crate::state::State;
 use smallvec::{smallvec, SmallVec};
-use std::collections::VecDeque;
+#[cfg(feature = "debug_gate_names")]
+use std::collections::HashMap;
+use std::collections::{HashSet, VecDeque};
 use std::fmt::{self, Display, Formatter};
 use tinyset::SetUsize;
+
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
 pub struct GateIndex {
     pub idx: usize,
@@ -30,6 +33,19 @@ impl GateIndex {
     }
     pub fn is_on(&self) -> bool {
         *self == ON
+    }
+    #[inline(always)]
+    pub fn is_const(&self) -> bool {
+        *self == OFF || *self == ON
+    }
+    pub fn opposite_if_const(&self) -> Option<GateIndex> {
+        if self.is_on() {
+            Some(OFF)
+        } else if self.is_off() {
+            Some(ON)
+        } else {
+            None
+        }
     }
 }
 #[derive(Copy, Clone, Debug)]
@@ -98,12 +114,37 @@ struct Probe {
     name: String,
     bits: SmallVec<[GateIndex; 1]>,
 }
+pub struct CircuitOutput {
+    name: String,
+    bits: SmallVec<[GateIndex; 1]>,
+}
+impl CircuitOutput {
+    pub fn u8(&self, g: &GateGraph) -> u8 {
+        g.collect_u8_lossy(&self.bits)
+    }
+    pub fn i8(&self, g: &GateGraph) -> i8 {
+        self.u8(g) as i8
+    }
+    pub fn print_u8(&self, g: &GateGraph) {
+        println!("{}: {}", self.name, self.u8(g));
+    }
+    pub fn print_i8(&self, g: &GateGraph) {
+        println!("{}: {}", self.name, self.i8(g));
+    }
+    pub fn bx(&self, g: &GateGraph, n: usize) -> bool {
+        g.value(self.bits[n])
+    }
+    pub fn b0(&self, g: &GateGraph) -> bool {
+        self.bx(g, 0)
+    }
+}
 
 pub struct GateGraph {
     nodes: Slab<Gate>,
     pending_updates: Vec<GateIndex>,
     next_pending_updates: Vec<GateIndex>,
     propagation_queue: VecDeque<GateIndex>, // allocated outside to prevent allocations in the hot loop.
+    outputs: HashSet<GateIndex>,
     state: State,
     #[cfg(feature = "debug_gate_names")]
     names: HashMap<GateIndex, String>,
@@ -129,6 +170,7 @@ impl GateGraph {
             next_pending_updates: vec![],
             state: State::new(),
             propagation_queue: VecDeque::new(),
+            outputs: HashSet::new(),
             #[cfg(feature = "debug_gate_names")]
             names: HashMap::new(),
             #[cfg(feature = "debug_gate_names")]
@@ -163,6 +205,7 @@ impl GateGraph {
             Not => {
                 assert!(x == 0, "Not only has one dependency");
             }
+            // Left explicitly to get errors when a new gate type is added
             Or | Nor | And | Nand | Xor | Xnor => {}
         }
 
@@ -323,6 +366,9 @@ impl GateGraph {
         self.state.get_state(idx)
     }
     pub fn init(&mut self) {
+        println!("{}", self.len());
+        self.optimize();
+        println!("{}", self.len());
         self.state.reserve(self.len());
 
         for idx in self.nodes.iter().map(|(i, _)| gi!(i)).collect::<Vec<_>>() {
@@ -346,7 +392,223 @@ impl GateGraph {
         }
         Err(())
     }
-    pub fn optimize(&mut self) {}
+    pub fn find_replacement(
+        &mut self,
+        idx: usize,
+        on: bool,
+        short_circuit: GateIndex,
+        negated: bool,
+    ) -> Option<GateIndex> {
+        let short_circuit_output = if negated {
+            short_circuit
+                .opposite_if_const()
+                .expect("short_circuit should be const")
+        } else {
+            short_circuit
+        };
+
+        if on == short_circuit.is_on() {
+            return Some(short_circuit_output);
+        }
+        if self.nodes.get(idx).unwrap().dependencies.len() == 1 {
+            return Some(short_circuit_output.opposite_if_const().unwrap());
+        }
+
+        let mut non_const_dependency = None;
+        for (i, dependency) in self
+            .nodes
+            .get(idx)
+            .unwrap()
+            .dependencies
+            .iter()
+            .copied()
+            .enumerate()
+        {
+            if dependency == short_circuit_output {
+                return Some(short_circuit_output);
+            }
+            if !dependency.is_const() {
+                non_const_dependency = Some((dependency, i))
+            }
+        }
+        if let Some((non_const_dependency, i)) = non_const_dependency {
+            if self.nodes.get(idx).unwrap().dependencies.len() == 2 {
+                if negated {
+                    let gate = self.nodes.get_mut(idx).unwrap();
+                    gate.ty = Not;
+                    gate.dependencies.remove(i + 1 % 2);
+                    return None;
+                } else {
+                    return Some(non_const_dependency);
+                }
+            }
+            // TODO REMOVE THE DEPENDENCY LINKS
+            return None;
+        } else {
+            // If there are only const dependencies and none of them are short circuits
+            // the output must be the opposite of the short_circuit output.
+            Some(short_circuit_output.opposite_if_const().unwrap())
+        }
+    }
+    pub fn find_replacement_xor(
+        &mut self,
+        idx: usize,
+        on: bool,
+        negated: bool,
+    ) -> Option<GateIndex> {
+        let dependencies = self.nodes.get(idx).unwrap().dependencies.len();
+        if dependencies == 1 {
+            return Some(if negated ^ on { OFF } else { ON });
+        }
+
+        let mut non_const_dependency = None;
+        let mut output = negated;
+        for (i, dependency) in self
+            .nodes
+            .get(idx)
+            .unwrap()
+            .dependencies
+            .iter()
+            .copied()
+            .enumerate()
+        {
+            if dependency.is_const() {
+                output = output ^ dependency.is_on()
+            } else {
+                non_const_dependency = Some((dependency, i))
+            }
+        }
+        if let Some((non_const_dependency, i)) = non_const_dependency {
+            if dependencies == 2 {
+                if negated ^ on {
+                    let gate = self.nodes.get_mut(idx).unwrap();
+                    gate.ty = Not;
+                    gate.dependencies.remove(i + 1 % 2);
+                    return None;
+                } else {
+                    return Some(non_const_dependency);
+                }
+            }
+            return None;
+        }
+        Some(if output { ON } else { OFF })
+    }
+    pub fn optimize(&mut self) {
+        // allocated outside main loop
+        let mut temp_dependents = Vec::new();
+        let mut temp_dependencies = Vec::new();
+
+        // propagate constants
+        let off = self.nodes.get_mut(OFF.idx).unwrap();
+
+        let mut work: Vec<_> = off.dependents.drain().map(|i| (i, false)).collect();
+
+        let on = self.nodes.get_mut(ON.idx).unwrap();
+
+        work.extend(on.dependents.drain().map(|i| (i, true)));
+
+        while let Some((idx, on)) = work.pop() {
+            // Don't optimize out observable things.
+            if self.outputs.contains(&gi!(idx)) {
+                continue;
+            }
+            #[cfg(feature = "debug_gate_names")]
+            if self.probes.contains_key(&gi!(idx)) {
+                continue;
+            }
+            if self.nodes.get(idx).is_none() {
+                continue;
+            }
+
+            let gate_type = self.nodes.get(idx).unwrap().ty;
+            let replacement = match gate_type {
+                Off | On | Lever => unreachable!("Off, On, and lever nodes have no dependencies"),
+                Not => Some(if on { OFF } else { ON }),
+                And => self.find_replacement(idx, on, OFF, false),
+                Nand => self.find_replacement(idx, on, OFF, true),
+                Or => self.find_replacement(idx, on, ON, false),
+                Nor => self.find_replacement(idx, on, ON, true),
+                Xor => self.find_replacement_xor(idx, on, false),
+                Xnor => self.find_replacement_xor(idx, on, true),
+            };
+            if let Some(replacement) = replacement {
+                temp_dependents.extend(self.nodes.get(idx).unwrap().dependents.iter());
+                temp_dependencies.extend(self.nodes.get(idx).unwrap().dependencies.iter().copied());
+
+                /*
+                    println!(
+                        "replaced {:?}->{:?}:{}->{:?}",
+                        temp_dependencies.iter().map(|i| i.idx).collect::<Vec<_>>(),
+                        gate_type,
+                        idx,
+                        temp_dependents.iter().collect::<Vec<_>>(),
+                    );
+                }
+                */
+                for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
+                    let dependency_dependents =
+                        &mut self.nodes.get_mut(dependency.idx).unwrap().dependents;
+                    dependency_dependents.remove(idx);
+                }
+
+                if replacement.is_const() {
+                    work.extend(temp_dependents.iter().map(|i| (*i, replacement.is_on())))
+                }
+
+                /* BIG GUNS
+                let replacement_gate = self.nodes.get(replacement.idx).unwrap();
+                let mut dd = replacement_gate.dependents.iter().collect::<Vec<_>>();
+                if dd.len() > 10 {
+                    dd = vec![];
+                }
+                println!(
+                    "replacement {:?}->{:?}:{}->{:?}",
+                    replacement_gate
+                        .dependencies
+                        .iter()
+                        .map(|i| i.idx)
+                        .collect::<Vec<_>>(),
+                    replacement_gate.ty,
+                    replacement.idx,
+                    dd
+                );
+                println!("");
+                */
+                for dependent in temp_dependents.drain(0..temp_dependents.len()) {
+                    if self.nodes.get(dependent).is_none() {
+                        println!("{}", dependent);
+                        println!("{}", idx);
+                    }
+                    let positions = self
+                        .nodes
+                        .get(dependent)
+                        .unwrap()
+                        .dependencies
+                        .iter()
+                        .enumerate()
+                        .fold(
+                            SmallVec::<[usize; 2]>::new(),
+                            |mut acc, (position, index)| {
+                                if index.idx == idx {
+                                    acc.push(position)
+                                }
+                                acc
+                            },
+                        );
+                    for position in positions {
+                        self.nodes.get_mut(dependent).unwrap().dependencies[position] = replacement
+                    }
+                    self.nodes
+                        .get_mut(replacement.idx)
+                        .unwrap()
+                        .dependents
+                        .insert(dependent);
+                }
+
+                self.nodes.remove(idx);
+            }
+        }
+    }
 
     // Input operations.
     fn update_lever_inner(&mut self, lever: GateIndex, value: bool) {
@@ -418,30 +680,27 @@ impl GateGraph {
     }
 
     // Output operations.
+    pub fn get<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> CircuitOutput {
+        for bit in bits {
+            self.outputs.insert(*bit);
+        }
+        CircuitOutput {
+            bits: bits.into(),
+            name: name.into(),
+        }
+    }
+    #[deprecated = "I will kill your gates in the optimizer"]
     pub fn collect_u8(&self, outputs: &[GateIndex; 8]) -> u8 {
         self.collect_u8_lossy(outputs)
     }
     // Collect only first 8 bits from a larger bus.
     // Or only some bits from a smaller bus.
+    #[deprecated = "I will kill your gates in the optimizer"]
     pub fn collect_u8_lossy(&self, outputs: &[GateIndex]) -> u8 {
         let mut output = 0;
         let mut mask = 1u8;
 
         for bit in outputs.iter().take(8) {
-            if self.value(*bit) {
-                output = output | mask
-            }
-
-            mask = mask << 1;
-        }
-
-        output
-    }
-    pub fn collect_u128(&self, outputs: &[GateIndex; 128]) -> u128 {
-        let mut output = 0;
-        let mut mask = 1u128;
-
-        for bit in outputs {
             if self.value(*bit) {
                 output = output | mask
             }
@@ -554,12 +813,13 @@ mod tests {
     }
     #[test]
     fn test_big_and() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
         let and = g.and2(ON, ON, "and");
+        let output = g.get(&[and], "big_and");
         g.dpush(and, ON);
         g.dpush(and, ON);
         g.init();
 
-        assert_eq!(g.value(and), true)
+        assert_eq!(output.b0(g), true)
     }
 }
