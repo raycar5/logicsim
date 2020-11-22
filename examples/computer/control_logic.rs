@@ -11,6 +11,9 @@ control_signal_set!(
     alu_out,
     rega_in,
     regb_in,
+    rega_out,
+    regb_out,
+    address_reg_out,
     jmp,
     pc_out,
     cin,
@@ -21,13 +24,13 @@ control_signal_set!(
     ic_reset,
     rego_in
 );
-// 16
+// 19
 
 //
 // | INSTRUCTION COUNTER | IS REGA ZERO | INSTRUCTION OPCODE |
 // |         3 bits      |     1bit     |        4 bits      |
 // |        b0 b1 b2     |      b3      |      b4 b5 b6 b7   |
-fn build_microinstructions() -> Vec<u16> {
+fn build_microinstructions() -> Vec<u32> {
     let mut out = vec![0; 2usize.pow(8)];
     // FIXED SECTION
     let instruction_load = [
@@ -64,7 +67,7 @@ fn microinstructions_from_instruction(
     instruction: InstructionType,
     instruction_step: usize,
     is_rega_zero: bool,
-) -> u16 {
+) -> u32 {
     use InstructionType::*;
     let micro = match instruction {
         NOP => [signals_to_bits!(ControlSignalsSet, ic_reset), 0, 0],
@@ -98,13 +101,29 @@ fn microinstructions_from_instruction(
             0,
             0,
         ],
+        LDR => [
+            signals_to_bits!(ControlSignalsSet, regb_out, address_reg_in),
+            signals_to_bits!(ControlSignalsSet, ram_out, rega_in, ic_reset),
+            0,
+        ],
+        LOR => [
+            signals_to_bits!(ControlSignalsSet, regb_out, address_reg_in),
+            signals_to_bits!(ControlSignalsSet, rom_out, rega_in, ic_reset),
+            0,
+        ],
+        SWP => [
+            // Cheeky use of the address register which will be reset by the load of the next instruction.
+            signals_to_bits!(ControlSignalsSet, rega_out, address_reg_in),
+            signals_to_bits!(ControlSignalsSet, regb_out, rega_in),
+            signals_to_bits!(ControlSignalsSet, address_reg_out, regb_in, ic_reset),
+        ],
         ADD => [
             signals_to_bits!(ControlSignalsSet, alu_out, rega_in, ic_reset),
             0,
             0,
         ],
         OUT => [
-            signals_to_bits!(ControlSignalsSet, alu_out, rego_in, ic_reset),
+            signals_to_bits!(ControlSignalsSet, rega_out, rego_in, ic_reset),
             0,
             0,
         ],

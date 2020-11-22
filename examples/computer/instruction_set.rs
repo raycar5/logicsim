@@ -18,6 +18,12 @@ pub enum InstructionType {
     LIA,
     // Load register B with immediate value.
     LIB,
+    // Load register A with the contents of ram pointed to by register B.
+    LDR,
+    // Load register A with the contents of rom pointed to by register B.
+    LOR,
+    // Swap the contents of register A and B.
+    SWP,
     // Add the contents of register A and B and save the result in register A.
     ADD,
     // Load the result of the alu to the output register.

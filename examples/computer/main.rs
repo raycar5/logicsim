@@ -18,14 +18,21 @@ fn main() {
 
     // ROM INPUT
     use instruction_set::InstructionType::*;
-    let rom_data: Vec<u8> = vec![
-        LIA.with_data(1).into(),
-        JZ.with_data(4).into(),
-        LIA.with_data(10).into(),
-        JMP.with_data(5).into(),
-        LIA.with_data(5).into(),
+    let far_jmp = 8;
+    let text_start = far_jmp + 2;
+    let mut rom_data: Vec<u8> = vec![
+        LIB.with_data(text_start).into(),
+        LOR.with_0().into(),
+        JZ.with_data(far_jmp).into(),
         OUT.with_0().into(),
+        LIA.with_data(1).into(),
+        ADD.with_0().into(),
+        SWP.with_0().into(),
+        JMP.with_data(1).into(),
+        OUT.with_0().into(),
+        JMP.with_data(far_jmp).into(),
     ];
+    rom_data.extend("Heya world".chars().map(|c| c as u8));
 
     let signals = ControlSignalsSet::new(g);
     let pc_output = counter(
@@ -48,6 +55,12 @@ fn main() {
         reset.bit(),
     );
     let rega_output = register(g, &rega_buffer, nclock, ON, ON, reset.bit());
+    let rega_bus_output = bus_multiplexer(
+        g,
+        &[signals.rega_out().bit()],
+        &[&zeros(bits), &rega_output],
+    );
+    bus.connect(g, &rega_bus_output);
 
     let regb_output = register(
         g,
@@ -57,6 +70,12 @@ fn main() {
         ON,
         reset.bit(),
     );
+    let regb_bus_output = bus_multiplexer(
+        g,
+        &[signals.regb_out().bit()],
+        &[&zeros(bits), &regb_output],
+    );
+    bus.connect(g, &regb_bus_output);
 
     let alu_output = alu(
         g,
@@ -76,6 +95,12 @@ fn main() {
         ON,
         reset.bit(),
     );
+    let address_reg_bus_output = bus_multiplexer(
+        g,
+        &[signals.address_reg_out().bit()],
+        &[&zeros(bits), &address_reg_output],
+    );
+    bus.connect(g, &address_reg_bus_output);
 
     let rom_output = rom(g, signals.rom_out().bit(), &address_reg_output, &rom_data);
     bus.connect(g, &rom_output);
@@ -122,16 +147,17 @@ fn main() {
     println!("RESET");
     println!("");
 
-    for i in 0..50 {
+    let mut out = 'b';
+    let mut tavg = 100;
+    for i in 0..500 {
         g.flip_lever_stable(clock_lever);
 
-        if i % 2 == 1 {
-            println!(
-                "output:{}, {}ms/clock",
-                output.i8(g),
-                t.elapsed().as_millis()
-            );
-            t = std::time::Instant::now();
+        let new_out = output.char(g);
+        if new_out != out {
+            out = new_out;
+            println!("output:{}, {}ms/clock", out, tavg);
         }
+        tavg = (tavg + t.elapsed().as_millis()) / 2;
+        t = std::time::Instant::now();
     }
 }
