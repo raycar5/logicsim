@@ -60,23 +60,19 @@ mod tests {
         assert_eq!(output.bx(g, 1), false);
 
         g.pulse_lever(clock);
-        g.assert_propagation(0);
         assert_eq!(output.bx(g, 0), false);
         assert_eq!(output.bx(g, 1), false);
 
         g.set_lever(enable);
         g.pulse_lever(clock);
-        g.assert_propagation(1);
         assert_eq!(output.bx(g, 0), true);
         assert_eq!(output.bx(g, 1), false);
 
         g.pulse_lever(clock);
-        g.assert_propagation(1);
         assert_eq!(output.bx(g, 0), false);
         assert_eq!(output.bx(g, 1), true);
 
         g.pulse_lever(clock);
-        g.assert_propagation(1);
         assert_eq!(output.bx(g, 0), true);
         assert_eq!(output.bx(g, 1), true);
     }
@@ -104,7 +100,7 @@ mod tests {
         g.set_lever(write);
         g.pulse_lever(clock);
         g.reset_lever(write);
-        g.assert_propagation(2);
+        g.assert_propagation(1);
         assert_eq!(output.u8(g), val);
 
         g.pulse_lever(clock);
@@ -135,7 +131,7 @@ mod tests {
         for i in 0..10 {
             g.set_lever(clock);
             g.reset_lever(clock);
-            g.assert_propagation_range(1..3);
+            g.assert_propagation(0);
             assert_eq!(output.u8(g), i);
         }
 
