@@ -1,6 +1,6 @@
 use num_enum::TryFromPrimitive;
-pub const OPCODE_LENGTH: u8 = 4;
-pub const DATA_LENGTH: u8 = 4;
+pub const OPCODE_LENGTH: u32 = 4;
+pub const DATA_LENGTH: u32 = 4;
 #[repr(u8)]
 #[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive)]
 pub enum InstructionType {
