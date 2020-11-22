@@ -5,10 +5,10 @@ fn main() {
     let a = 0u128;
     let b = -10000i128;
 
-    let input1 = WordInput::new(g, bits);
-    let input2 = WordInput::new(g, bits);
+    let input1 = WordInput::new(g, bits, "input");
+    let input2 = WordInput::new(g, bits, "input");
 
-    let output = adder(g, OFF, input1.bits(), input2.bits());
+    let output = adder(g, OFF, input1.bits(), input2.bits(), "adder");
     let out = g.output(&output, "out");
 
     g.init();

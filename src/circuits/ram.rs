@@ -1,9 +1,11 @@
 use super::{decoder, register};
 use crate::graph::*;
 
-pub const RAM: &str = "ram";
+fn mkname(name: String) -> String {
+    format!("RAM:{}", name)
+}
 
-pub fn ram(
+pub fn ram<S: Into<String>>(
     g: &mut GateGraph,
     read: GateIndex,
     write: GateIndex,
@@ -11,15 +13,17 @@ pub fn ram(
     reset: GateIndex,
     address: &[GateIndex],
     input: &[GateIndex],
+    name: S,
 ) -> Vec<GateIndex> {
-    let outputs: Vec<_> = input.iter().map(|_| g.or(RAM)).collect();
+    let name = mkname(name.into());
+    let outputs: Vec<_> = input.iter().map(|_| g.or(name.clone())).collect();
 
-    let decoded = decoder(g, address);
+    let decoded = decoder(g, address, name.clone());
     for cell_enable in decoded {
-        let write = g.and2(cell_enable, write, RAM);
+        let write = g.and2(cell_enable, write, name.clone());
 
-        let read = g.and2(cell_enable, read, RAM);
-        let cell = register(g, input, clock, write, read, reset);
+        let read = g.and2(cell_enable, read, name.clone());
+        let cell = register(g, input, clock, write, read, reset, name.clone());
 
         for (ob, cb) in outputs.iter().zip(cell) {
             g.dpush(*ob, cb)
@@ -33,7 +37,7 @@ mod tests {
     use super::super::WordInput;
     use super::*;
 
-    //#[test]
+    #[test]
     fn test_ram_reset() {
         let mut g = &mut GateGraph::new();
 
@@ -41,10 +45,19 @@ mod tests {
         let write = g.lever("write");
         let clock = g.lever("clock");
         let reset = g.lever("reset");
-        let input = WordInput::new(g, 8);
-        let address = WordInput::new(g, 4);
+        let input = WordInput::new(g, 8, "input");
+        let address = WordInput::new(g, 4, "input");
 
-        let output = ram(g, read, write, clock, reset, address.bits(), input.bits());
+        let output = ram(
+            g,
+            read,
+            write,
+            clock,
+            reset,
+            address.bits(),
+            input.bits(),
+            "ram",
+        );
         let out = g.output(&output, "out");
 
         g.init();
@@ -72,15 +85,22 @@ mod tests {
         let write = g.lever("write");
         let clock = g.lever("clock");
         let reset = g.lever("reset");
-        let input = WordInput::new(g, 4);
-        let address = WordInput::new(g, 4);
+        let input = WordInput::new(g, 4, "input");
+        let address = WordInput::new(g, 4, "input");
 
-        let output = ram(g, read, write, clock, reset, address.bits(), input.bits());
+        let output = ram(
+            g,
+            read,
+            write,
+            clock,
+            reset,
+            address.bits(),
+            input.bits(),
+            "ram",
+        );
         let out = g.output(&output, "out");
 
-        g.dump_dot(std::path::Path::new("test1.dot"));
         g.init();
-        g.dump_dot(std::path::Path::new("test2.dot"));
         g.run_until_stable(100).unwrap();
 
         g.set_lever(reset);

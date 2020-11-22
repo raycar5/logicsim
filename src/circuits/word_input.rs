@@ -1,14 +1,17 @@
 use crate::bititer::BitIter;
 use crate::graph::*;
 
-pub const WORD_INPUT: &str = "word_input";
+fn mkname(name: String) -> String {
+    format!("WI:{}", name)
+}
 pub struct WordInput {
     levers: Vec<GateIndex>,
 }
 impl WordInput {
-    pub fn new(g: &mut GateGraph, width: usize) -> Self {
+    pub fn new<S: Into<String>>(g: &mut GateGraph, width: usize, name: S) -> Self {
+        let name = mkname(name.into());
         Self {
-            levers: (0..width).map(|_| g.lever(WORD_INPUT)).collect(),
+            levers: (0..width).map(|_| g.lever(name.clone())).collect(),
         }
     }
 

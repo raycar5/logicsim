@@ -1,7 +1,5 @@
 use crate::graph::*;
 
-pub const WIRE: &str = "BUS";
-
 #[macro_export]
 macro_rules! wire {
     ($g:expr,$name:ident) => {
@@ -16,10 +14,11 @@ pub struct Wire {
 }
 impl Wire {
     pub fn new<S: Into<String>>(g: &mut GateGraph, name: S) -> Self {
+        let name = name.into();
         Self {
-            bit: g.or(WIRE),
+            bit: g.or(format!("WIRE:{}", name.clone())),
             lever: None,
-            name: name.into(),
+            name,
         }
     }
     pub fn lever(&mut self, g: &mut GateGraph) -> GateIndex {

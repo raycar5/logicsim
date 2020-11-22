@@ -1,15 +1,27 @@
 use crate::bititer::BitIter;
 use crate::graph::*;
 
-pub const DECODER: &str = "decoder";
-pub fn decoder(g: &mut GateGraph, address: &[GateIndex]) -> Vec<GateIndex> {
+fn mkname(name: String) -> String {
+    format!("DECODER:{}", name)
+}
+
+pub fn decoder<S: Into<String>>(
+    g: &mut GateGraph,
+    address: &[GateIndex],
+    name: S,
+) -> Vec<GateIndex> {
+    let name = mkname(name.into());
+
     let mut out = Vec::new();
     out.reserve(1 << address.len());
 
-    let naddress: Vec<GateIndex> = address.iter().map(|bit| g.not1(*bit, DECODER)).collect();
+    let naddress: Vec<GateIndex> = address
+        .iter()
+        .map(|bit| g.not1(*bit, name.clone()))
+        .collect();
 
     for i in 0..1 << address.len() {
-        let output = g.and(DECODER);
+        let output = g.and(name.clone());
         for (bit_set, (a, na)) in BitIter::new(i).zip(address.iter().zip(naddress.iter())) {
             if bit_set {
                 g.dpush(output, *a)
@@ -30,8 +42,8 @@ mod tests {
     #[test]
     fn test_decoder() {
         let g = &mut GateGraph::new();
-        let c = WordInput::new(g, 2);
-        let out = decoder(g, &c.bits());
+        let c = WordInput::new(g, 2, "input");
+        let out = decoder(g, &c.bits(), "decoder");
         let out = g.output(&out, "out");
 
         g.init();
