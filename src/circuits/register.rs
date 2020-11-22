@@ -25,62 +25,62 @@ pub fn register(
 mod tests {
     use super::super::WordInput;
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn test_register() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
         let value = 3u8;
 
-        let input = WordInput::new(&mut g, 8);
+        let input = WordInput::new(g, 8);
 
         let read = g.lever("read");
         let write = g.lever("write");
         let reset = g.lever("reset");
         let clock = g.lever("clock");
 
-        let r = register(&mut g, input.bits(), clock, write, read, reset);
+        let r = register(g, input.bits(), clock, write, read, reset);
 
         //let output =
-        let out = &r.clone().try_into().unwrap();
+        let out = g.output(&r, "out");
+
         g.init();
 
-        input.set(&mut g, value);
+        input.set(g, value);
 
         g.run_until_stable(10).unwrap();
-        assert_eq!(g.collect_u8(out), 0);
+        assert_eq!(out.u8(g), 0);
 
         g.set_lever(write);
 
-        assert_eq!(g.collect_u8(out), 0);
+        assert_eq!(out.u8(g), 0);
 
         g.set_lever(clock);
-        assert_eq!(g.collect_u8(out), 0);
+        assert_eq!(out.u8(g), 0);
 
         g.reset_lever(clock);
         g.set_lever(read);
-        assert_eq!(g.collect_u8(out), value);
+        assert_eq!(out.u8(g), value);
 
         g.reset_lever(read);
-        assert_eq!(g.collect_u8(out), 0);
+        assert_eq!(out.u8(g), 0);
 
         g.set_lever(read);
-        assert_eq!(g.collect_u8(out), value);
+        assert_eq!(out.u8(g), value);
 
-        input.set(&mut g, value ^ value);
-        assert_eq!(g.collect_u8(out), value);
+        input.set(g, value ^ value);
+        assert_eq!(out.u8(g), value);
 
         g.set_lever(write);
-        assert_eq!(g.collect_u8(out), value);
+        assert_eq!(out.u8(g), value);
 
         g.set_lever(clock);
-        assert_eq!(g.collect_u8(out), value ^ value);
+        assert_eq!(out.u8(g), value ^ value);
 
         g.reset_lever(clock);
-        assert_eq!(g.collect_u8(out), value ^ value);
+        assert_eq!(out.u8(g), value ^ value);
 
         g.set_lever(reset);
         g.set_lever(clock);
-        assert_eq!(g.collect_u8(out), 0);
+        assert_eq!(out.u8(g), 0);
     }
 }
