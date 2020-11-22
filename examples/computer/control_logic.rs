@@ -28,24 +28,28 @@ control_signal_set!(
 
 const INSTRUCTION_COUNTER_BITS: u32 = 3;
 const IS_REGA_ZERO_BITS: u32 = 1;
+const MICROINSTRUCTION_INPUT_BITS: u32 =
+    INSTRUCTION_COUNTER_BITS + IS_REGA_ZERO_BITS + OPCODE_LENGTH;
+
 const IS_REGA_ZERO_OFFSET: u32 = INSTRUCTION_COUNTER_BITS;
 const OPCODE_OFFSET: u32 = IS_REGA_ZERO_OFFSET + IS_REGA_ZERO_BITS;
+
 // |                 Microinstruction input                  |
 // | INSTRUCTION COUNTER | IS REGA ZERO | INSTRUCTION OPCODE |
 // |         3 bits      |     1bit     |        4 bits      |
 // |        b0 b1 b2     |      b3      |      b4 b5 b6 b7   |
 fn build_microinstructions() -> Vec<u32> {
-    let mut out = vec![0; 2usize.pow(8)];
+    let mut out = vec![0; 1 << MICROINSTRUCTION_INPUT_BITS];
     // FIXED SECTION
     let instruction_fetch = [
         signals_to_bits!(ControlSignalsSet, pc_out, address_reg_in),
         signals_to_bits!(ControlSignalsSet, rom_out, ir_in, pc_enable),
     ];
 
-    for instruction_step in 0..2usize.pow(INSTRUCTION_COUNTER_BITS) {
-        for rega_zero in 0..2usize.pow(IS_REGA_ZERO_BITS) {
+    for instruction_step in 0..1 << INSTRUCTION_COUNTER_BITS {
+        for rega_zero in 0..1 << IS_REGA_ZERO_BITS {
             let is_rega_zero = rega_zero == 1;
-            for opcode in 0..2usize.pow(OPCODE_LENGTH) {
+            for opcode in 0..1 << OPCODE_LENGTH {
                 let input = instruction_step
                     | (rega_zero << IS_REGA_ZERO_OFFSET)
                     | (opcode << OPCODE_OFFSET);

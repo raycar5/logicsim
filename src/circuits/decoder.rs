@@ -4,11 +4,11 @@ use crate::graph::*;
 pub const DECODER: &str = "decoder";
 pub fn decoder(g: &mut GateGraph, address: &[GateIndex]) -> Vec<GateIndex> {
     let mut out = Vec::new();
-    out.reserve(2usize.pow(address.len() as u32));
+    out.reserve(1 << address.len());
 
     let naddress: Vec<GateIndex> = address.iter().map(|bit| g.not1(*bit, DECODER)).collect();
 
-    for i in 0..2usize.pow(address.len() as u32) {
+    for i in 0..1 << address.len() {
         let output = g.and(DECODER);
         for (bit_set, (a, na)) in BitIter::new(i).zip(address.iter().zip(naddress.iter())) {
             if bit_set {
