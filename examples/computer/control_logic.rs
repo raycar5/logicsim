@@ -26,7 +26,7 @@ control_signal_set!(
 );
 // 19
 
-//
+// |                 Microinstruction input                  |
 // | INSTRUCTION COUNTER | IS REGA ZERO | INSTRUCTION OPCODE |
 // |         3 bits      |     1bit     |        4 bits      |
 // |        b0 b1 b2     |      b3      |      b4 b5 b6 b7   |
@@ -195,8 +195,6 @@ pub fn setup_control_logic(
 
     let nclock = g.not1(clock, "nclock");
     let instruction_counter = counter(g, nclock, ON, signals.ic_reset().bit(), ON, OFF, &zeros(3));
-    //g.probe(&[rega_zero], "raz");
-    //g.probe(&[nclock], "nclock");
 
     let microinstruction_input: Vec<_> = instruction_counter
         .into_iter()
