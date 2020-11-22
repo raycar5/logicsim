@@ -27,36 +27,37 @@ mod tests {
 
     #[test]
     fn test_flip_flop() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let d = g.lever("d");
         let read = g.lever("read");
         let write = g.lever("write");
         let clock = g.lever("clock");
 
-        let output = d_flip_flop(&mut g, d, clock, write, read);
+        let output = d_flip_flop(g, d, clock, write, read);
+        let out = g.output1(output, "out");
         g.init();
 
         g.run_until_stable(10).unwrap();
-        assert_eq!(g.value(output), false);
+        assert_eq!(out.b0(g), false);
 
         g.set_lever(d);
         g.set_lever(write);
-        assert_eq!(g.value(output), false);
+        assert_eq!(out.b0(g), false);
 
         g.pulse_lever(clock);
-        assert_eq!(g.value(output), false);
+        assert_eq!(out.b0(g), false);
 
         g.set_lever(read);
-        assert_eq!(g.value(output), true);
+        assert_eq!(out.b0(g), true);
 
         g.reset_lever(d);
         g.reset_lever(read);
         g.reset_lever(write);
-        assert_eq!(g.value(output), false);
+        assert_eq!(out.b0(g), false);
 
         g.set_lever(read);
-        assert_eq!(g.value(output), true);
+        assert_eq!(out.b0(g), true);
 
         g.set_lever(write);
         g.set_lever(clock);
@@ -65,6 +66,6 @@ mod tests {
         g.reset_lever(clock);
 
         g.run_until_stable(10).unwrap();
-        assert_eq!(g.value(output), false);
+        assert_eq!(out.b0(g), false);
     }
 }

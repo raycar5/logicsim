@@ -114,6 +114,7 @@ struct Probe {
     name: String,
     bits: SmallVec<[GateIndex; 1]>,
 }
+// TODO macro this?
 pub struct CircuitOutput {
     name: String,
     bits: SmallVec<[GateIndex; 1]>,
@@ -124,6 +125,12 @@ impl CircuitOutput {
     }
     pub fn i8(&self, g: &GateGraph) -> i8 {
         self.u8(g) as i8
+    }
+    pub fn u128(&self, g: &GateGraph) -> u128 {
+        g.collect_u128_lossy(&self.bits)
+    }
+    pub fn i128(&self, g: &GateGraph) -> i128 {
+        self.u128(g) as i128
     }
     pub fn char(&self, g: &GateGraph) -> char {
         self.u8(g) as char
@@ -366,10 +373,6 @@ impl GateGraph {
         )
     }
 
-    #[deprecated = "I will kill your gates in the optimizer"]
-    pub fn value(&self, idx: GateIndex) -> bool {
-        self.state.get_state(idx)
-    }
     pub fn init(&mut self) {
         let old_len = self.len();
         self.optimize();
@@ -707,18 +710,32 @@ impl GateGraph {
             name: name.into(),
         }
     }
-    #[deprecated = "I will kill your gates in the optimizer"]
-    pub fn collect_u8(&self, outputs: &[GateIndex; 8]) -> u8 {
-        self.collect_u8_lossy(outputs)
+    fn value(&self, idx: GateIndex) -> bool {
+        self.state.get_state(idx)
     }
     // Collect only first 8 bits from a larger bus.
     // Or only some bits from a smaller bus.
-    #[deprecated = "I will kill your gates in the optimizer"]
-    pub fn collect_u8_lossy(&self, outputs: &[GateIndex]) -> u8 {
+    fn collect_u8_lossy(&self, outputs: &[GateIndex]) -> u8 {
         let mut output = 0;
         let mut mask = 1u8;
 
         for bit in outputs.iter().take(8) {
+            if self.value(*bit) {
+                output = output | mask
+            }
+
+            mask = mask << 1;
+        }
+
+        output
+    }
+    // Collect only first 8 bits from a larger bus.
+    // Or only some bits from a smaller bus.
+    fn collect_u128_lossy(&self, outputs: &[GateIndex]) -> u128 {
+        let mut output = 0;
+        let mut mask = 1u128;
+
+        for bit in outputs.iter().take(128) {
             if self.value(*bit) {
                 output = output | mask
             }

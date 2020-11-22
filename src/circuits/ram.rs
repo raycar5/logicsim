@@ -32,70 +32,51 @@ pub fn ram(
 mod tests {
     use super::super::WordInput;
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn test_ram_reset() {
-        let mut g = GateGraph::new();
+        let mut g = &mut GateGraph::new();
 
         let read = g.lever("read");
         let write = g.lever("write");
         let clock = g.lever("clock");
         let reset = g.lever("reset");
-        let input = WordInput::new(&mut g, 8);
-        let address = WordInput::new(&mut g, 4);
+        let input = WordInput::new(g, 8);
+        let address = WordInput::new(g, 4);
 
-        let output = ram(
-            &mut g,
-            read,
-            write,
-            clock,
-            reset,
-            address.bits(),
-            input.bits(),
-        )
-        .try_into()
-        .unwrap();
+        let output = ram(g, read, write, clock, reset, address.bits(), input.bits());
+        let out = g.output(&output, "out");
 
         g.init();
         g.run_until_stable(100).unwrap();
 
-        assert_eq!(g.collect_u8(&output), 0);
+        assert_eq!(out.u8(g), 0);
 
         g.set_lever(read);
-        assert_eq!(g.collect_u8(&output), 255);
+        assert_eq!(out.u8(g), 255);
 
         g.set_lever(reset);
         g.pulse_lever(clock);
         g.reset_lever(reset);
         for a in 0..2u8.pow(address.len() as u32) - 1 {
             address.set(&mut g, a);
-            assert_eq!(g.collect_u8(&output), 0);
+            assert_eq!(out.u8(g), 0);
         }
     }
 
     #[test]
     fn test_ram_write_read() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let read = g.lever("read");
         let write = g.lever("write");
         let clock = g.lever("clock");
         let reset = g.lever("reset");
-        let input = WordInput::new(&mut g, 8);
-        let address = WordInput::new(&mut g, 4);
+        let input = WordInput::new(g, 8);
+        let address = WordInput::new(g, 4);
 
-        let output = ram(
-            &mut g,
-            read,
-            write,
-            clock,
-            reset,
-            address.bits(),
-            input.bits(),
-        )
-        .try_into()
-        .unwrap();
+        let output = ram(g, read, write, clock, reset, address.bits(), input.bits());
+        let out = g.output(&output, "out");
 
         g.init();
         g.run_until_stable(100).unwrap();
@@ -104,22 +85,22 @@ mod tests {
         g.pulse_lever(clock);
         g.reset_lever(reset);
 
-        assert_eq!(g.collect_u8(&output), 0);
+        assert_eq!(out.u8(g), 0);
 
         g.set_lever(write);
         for a in 0..2u8.pow(address.len() as u32) - 1 {
-            address.set(&mut g, a);
-            input.set(&mut g, a ^ a);
+            address.set(g, a);
+            input.set(g, a ^ a);
             g.set_lever(clock);
             g.reset_lever(clock);
-            assert_eq!(g.collect_u8(&output), 0);
+            assert_eq!(out.u8(g), 0);
         }
         g.reset_lever(write);
         g.set_lever(read);
 
         for a in 0..2u8.pow(address.len() as u32) - 1 {
-            address.set(&mut g, a);
-            assert_eq!(g.collect_u8(&output), a ^ a);
+            address.set(g, a);
+            assert_eq!(out.u8(g), a ^ a);
         }
     }
 }

@@ -29,19 +29,20 @@ mod tests {
 
     #[test]
     fn test_decoder() {
-        let mut g = GateGraph::new();
-        let c = WordInput::new(&mut g, 8);
-        let out = decoder(&mut g, &c.bits());
+        let g = &mut GateGraph::new();
+        let c = WordInput::new(g, 8);
+        let out = decoder(g, &c.bits());
+        let out = g.output(&out, "out");
 
         g.init();
         g.run_until_stable(10).unwrap();
 
-        assert_eq!(g.collect_u8_lossy(&out), 1);
+        assert_eq!(out.u8(g), 1);
 
-        c.set_bit(&mut g, 0);
-        assert_eq!(g.collect_u8_lossy(&out), 2);
+        c.set_bit(g, 0);
+        assert_eq!(out.u8(g), 2);
 
-        c.set_bit(&mut g, 1);
-        assert_eq!(g.collect_u8_lossy(&out), 8);
+        c.set_bit(g, 1);
+        assert_eq!(out.u8(g), 8);
     }
 }

@@ -32,7 +32,7 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        let g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let constants = [0, 0b1u8, 0b10010010];
         let results = [
@@ -42,9 +42,10 @@ mod tests {
         ];
         for (c, result) in constants.iter().zip(results.iter()) {
             let output: Vec<_> = constant(*c);
+            let out = g.output(&output, "out");
 
-            for (bit, expected) in output.iter().zip(result) {
-                assert_eq!(g.value(*bit), *expected)
+            for (i, result) in result.iter().enumerate() {
+                assert_eq!(out.bx(g, i), *result)
             }
         }
     }
