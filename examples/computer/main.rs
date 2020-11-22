@@ -136,7 +136,7 @@ fn main() {
     );
 
     let mut t = std::time::Instant::now();
-    let output = g.get(&rego_output, "output");
+    let output = g.output(&rego_output, "output");
     g.init();
     g.run_until_stable(100).unwrap();
 
@@ -149,8 +149,8 @@ fn main() {
 
     let mut out = 'b';
     let mut tavg = 100;
-    for i in 0..500 {
-        g.flip_lever_stable(clock_lever);
+    for _ in 0..500 {
+        g.flip_lever(clock_lever);
 
         let new_out = output.char(g);
         if new_out != out {

@@ -365,6 +365,8 @@ impl GateGraph {
                 .drain(0..self.next_pending_updates.len()),
         )
     }
+
+    #[deprecated = "I will kill your gates in the optimizer"]
     pub fn value(&self, idx: GateIndex) -> bool {
         self.state.get_state(idx)
     }
@@ -506,7 +508,7 @@ impl GateGraph {
         let mut temp_dependents = Vec::new();
         let mut temp_dependencies = Vec::new();
 
-        // propagate constants
+        // Propagate constants.
         let off = self.nodes.get_mut(OFF.idx).unwrap();
 
         let mut work: Vec<_> = off.dependents.drain().map(|i| (i, false)).collect();
@@ -514,6 +516,10 @@ impl GateGraph {
         let on = self.nodes.get_mut(ON.idx).unwrap();
 
         work.extend(on.dependents.drain().map(|i| (i, true)));
+
+        // Seems like a reasonable heuristic.
+        temp_dependents.reserve(work.len() / 2);
+        temp_dependencies.reserve(work.len() / 2);
 
         while let Some((idx, on)) = work.pop() {
             // Don't optimize out observable things.
@@ -583,10 +589,7 @@ impl GateGraph {
                 println!("");
                 */
                 for dependent in temp_dependents.drain(0..temp_dependents.len()) {
-                    if self.nodes.get(dependent).is_none() {
-                        println!("{}", dependent);
-                        println!("{}", idx);
-                    }
+                    // A gate can have the same dependency many times in different dependency indexes.
                     let positions = self
                         .nodes
                         .get(dependent)
@@ -688,7 +691,7 @@ impl GateGraph {
     }
 
     // Output operations.
-    pub fn get<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> CircuitOutput {
+    pub fn output<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> CircuitOutput {
         for bit in bits {
             self.outputs.insert(*bit);
         }
@@ -823,7 +826,7 @@ mod tests {
     fn test_big_and() {
         let g = &mut GateGraph::new();
         let and = g.and2(ON, ON, "and");
-        let output = g.get(&[and], "big_and");
+        let output = g.output(&[and], "big_and");
         g.dpush(and, ON);
         g.dpush(and, ON);
         g.init();
