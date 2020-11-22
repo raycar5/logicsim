@@ -1,10 +1,12 @@
 mod instruction_set;
+mod programs;
 use wires::*;
 #[macro_use]
 extern crate strum_macros;
 #[macro_use]
 mod control_logic;
 use control_logic::ControlSignalsSet;
+
 fn main() {
     let g = &mut GateGraph::new();
     let bits = 8;
@@ -16,23 +18,9 @@ fn main() {
     let reset_lever = reset.lever(g);
     let nclock = g.not1(clock.bit(), "nclock");
 
-    // ROM INPUT
-    use instruction_set::InstructionType::*;
-    let far_jmp = 8;
-    let text_start = far_jmp + 2;
-    let mut rom_data: Vec<u8> = vec![
-        LIB.with_data(text_start).into(),
-        LOR.with_0().into(),
-        JZ.with_data(far_jmp).into(),
-        OUT.with_0().into(),
-        LIA.with_data(1).into(),
-        ADD.with_0().into(),
-        SWP.with_0().into(),
-        JMP.with_data(1).into(),
-        OUT.with_0().into(),
-        JMP.with_data(far_jmp).into(),
-    ];
-    rom_data.extend("Heya world".chars().map(|c| c as u8));
+    const TEXT_OUTPUT: bool = false;
+    let rom_data = programs::multiply_rom(2, -3i8 as u8);
+    //let rom_data = programs::echo_rom("Heya world");
 
     let signals = ControlSignalsSet::new(g);
     let pc_output = counter(
@@ -144,18 +132,32 @@ fn main() {
     g.set_lever_stable(reset_lever);
     g.pulse_lever_stable(clock_lever);
     g.reset_lever_stable(reset_lever);
-    println!("RESET");
+    println!("Init+reset time: {}ms", t.elapsed().as_millis());
     println!("");
 
-    let mut out = 'b';
+    t = std::time::Instant::now();
+
     let mut tavg = 100;
-    for _ in 0..500 {
+    let mut old_i8 = 0;
+    let mut old_char = 0 as char;
+    let mut new_i8 = old_i8;
+    let mut new_char = old_char;
+
+    for _ in 0..1000 {
         g.flip_lever(clock_lever);
 
-        let new_out = output.char(g);
-        if new_out != out {
-            out = new_out;
-            println!("output:{}, {}ms/clock", out, tavg);
+        if TEXT_OUTPUT {
+            new_char = output.char(g);
+        } else {
+            new_i8 = output.i8(g);
+        }
+        if new_i8 != old_i8 {
+            old_i8 = new_i8;
+            println!("output:{}, {}ms/clock", old_i8, tavg);
+        }
+        if new_char != old_char {
+            old_char = new_char;
+            println!("output:{}, {}ms/clock", old_char, tavg);
         }
         tavg = (tavg + t.elapsed().as_millis()) / 2;
         t = std::time::Instant::now();

@@ -700,6 +700,13 @@ impl GateGraph {
             name: name.into(),
         }
     }
+    pub fn output1<S: Into<String>>(&mut self, bit: GateIndex, name: S) -> CircuitOutput {
+        self.outputs.insert(bit);
+        CircuitOutput {
+            bits: smallvec![bit],
+            name: name.into(),
+        }
+    }
     #[deprecated = "I will kill your gates in the optimizer"]
     pub fn collect_u8(&self, outputs: &[GateIndex; 8]) -> u8 {
         self.collect_u8_lossy(outputs)
@@ -776,7 +783,7 @@ mod tests {
 
     #[test]
     fn test_flip_flop() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
 
         let set = g.lever("");
         let reset = g.lever("");
@@ -787,34 +794,38 @@ mod tests {
         let flop = g.or2(set, q, "");
         let nq = g.not1(flop, "");
         g.d1(flip, nq);
+
+        let output = g.output1(nq, "nq");
         g.init();
 
         g.run_until_stable(10).unwrap();
         for _ in 0..10 {
-            assert_eq!(g.value(nq), true);
+            assert_eq!(output.b0(g), true);
         }
         g.update_lever(set, true);
 
         g.run_until_stable(10).unwrap();
-        assert_eq!(g.value(nq), false);
+        assert_eq!(output.b0(g), false);
 
         g.update_lever(set, false);
 
         g.run_until_stable(10).unwrap();
-        assert_eq!(g.value(nq), false);
+        assert_eq!(output.b0(g), false);
     }
     #[test]
     fn test_not_loop() {
-        let mut g = GateGraph::new();
+        let g = &mut GateGraph::new();
         let n1 = g.not("n1");
-        let n2 = g.not1(n1, "name");
-        let n3 = g.not1(n2, "name");
+        let n2 = g.not1(n1, "n2");
+        let n3 = g.not1(n2, "n3");
         g.d0(n1, n3);
+
+        let output = g.output1(n1, "n1");
         g.init();
 
         let mut a = true;
         for _ in 0..10 {
-            assert_eq!(g.value(n1), a);
+            assert_eq!(output.b0(g), a);
             g.tick();
             a = !a;
         }

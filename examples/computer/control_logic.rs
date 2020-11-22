@@ -42,7 +42,7 @@ fn build_microinstructions() -> Vec<u32> {
         for rega_zero in 0..2 {
             let is_rega_zero = rega_zero == 1;
             for opcode in 0..2usize.pow(4) {
-                // the first 2 microinstructions are always the load
+                // the first 2 microinstructions are always the instruction fetch.
                 let input = instruction_step | (rega_zero << 3) | (opcode << 4);
                 if instruction_step < 2 {
                     out[input as usize] = instruction_load[instruction_step as usize];
@@ -70,7 +70,7 @@ fn microinstructions_from_instruction(
 ) -> u32 {
     use InstructionType::*;
     let micro = match instruction {
-        NOP => [signals_to_bits!(ControlSignalsSet, ic_reset), 0, 0],
+        //NOP => [signals_to_bits!(ControlSignalsSet, ic_reset), 0, 0],
         LDA => [
             signals_to_bits!(ControlSignalsSet, ir_data_out, address_reg_in),
             signals_to_bits!(ControlSignalsSet, ram_out, rega_in, ic_reset),
@@ -111,6 +111,16 @@ fn microinstructions_from_instruction(
             signals_to_bits!(ControlSignalsSet, rom_out, rega_in, ic_reset),
             0,
         ],
+        STR => [
+            signals_to_bits!(ControlSignalsSet, regb_out, address_reg_in),
+            signals_to_bits!(ControlSignalsSet, rega_out, ram_in, ic_reset),
+            0,
+        ],
+        STI => [
+            signals_to_bits!(ControlSignalsSet, ir_data_out, address_reg_in),
+            signals_to_bits!(ControlSignalsSet, rega_out, ram_in, ic_reset),
+            0,
+        ],
         SWP => [
             // Cheeky use of the address register which will be reset by the load of the next instruction.
             signals_to_bits!(ControlSignalsSet, rega_out, address_reg_in),
@@ -119,6 +129,18 @@ fn microinstructions_from_instruction(
         ],
         ADD => [
             signals_to_bits!(ControlSignalsSet, alu_out, rega_in, ic_reset),
+            0,
+            0,
+        ],
+        SUB => [
+            signals_to_bits!(
+                ControlSignalsSet,
+                alu_invert_regb,
+                cin,
+                alu_out,
+                rega_in,
+                ic_reset
+            ),
             0,
             0,
         ],
@@ -173,6 +195,8 @@ pub fn setup_control_logic(
 
     let nclock = g.not1(clock, "nclock");
     let instruction_counter = counter(g, nclock, ON, signals.ic_reset().bit(), ON, OFF, &zeros(3));
+    //g.probe(&[rega_zero], "raz");
+    //g.probe(&[nclock], "nclock");
 
     let microinstruction_input: Vec<_> = instruction_counter
         .into_iter()
