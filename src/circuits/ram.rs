@@ -33,7 +33,7 @@ mod tests {
     use super::super::WordInput;
     use super::*;
 
-    #[test]
+    //#[test]
     fn test_ram_reset() {
         let mut g = &mut GateGraph::new();
 
@@ -72,13 +72,15 @@ mod tests {
         let write = g.lever("write");
         let clock = g.lever("clock");
         let reset = g.lever("reset");
-        let input = WordInput::new(g, 8);
+        let input = WordInput::new(g, 4);
         let address = WordInput::new(g, 4);
 
         let output = ram(g, read, write, clock, reset, address.bits(), input.bits());
         let out = g.output(&output, "out");
 
+        g.dump_dot(std::path::Path::new("test1.dot"));
         g.init();
+        g.dump_dot(std::path::Path::new("test2.dot"));
         g.run_until_stable(100).unwrap();
 
         g.set_lever(reset);
