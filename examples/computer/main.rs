@@ -10,6 +10,7 @@ use control_logic::ControlSignalsSet;
 fn main() {
     let g = &mut GateGraph::new();
     let bits = 8;
+    let ram_address_space = 2;
 
     let mut bus = Bus::new(g, bits);
     wire!(g, clock);
@@ -19,7 +20,7 @@ fn main() {
     let nclock = g.not1(clock.bit(), "nclock");
 
     const TEXT_OUTPUT: bool = false;
-    let rom_data = programs::multiply_rom(2, -3i8 as u8);
+    let rom_data = programs::multiply_rom(51, -2i8 as u8);
     //let rom_data = programs::echo_rom("Heya world");
 
     let signals = ControlSignalsSet::new(g);
@@ -99,7 +100,7 @@ fn main() {
         signals.ram_in().bit(),
         clock.bit(),
         reset.bit(),
-        &address_reg_output,
+        &address_reg_output[0..ram_address_space],
         bus.bits(),
     );
     bus.connect(g, &ram_output);
@@ -126,6 +127,7 @@ fn main() {
     let mut t = std::time::Instant::now();
     let output = g.output(&rego_output, "output");
     g.init();
+    g.dump_dot(std::path::Path::new("computer.dot"));
     g.run_until_stable(100).unwrap();
 
     // RESET
@@ -143,8 +145,8 @@ fn main() {
     let mut new_i8 = old_i8;
     let mut new_char = old_char;
 
-    for _ in 0..1000 {
-        g.flip_lever(clock_lever);
+    for _ in 0..10000 {
+        g.flip_lever_stable(clock_lever);
 
         if TEXT_OUTPUT {
             new_char = output.char(g);
@@ -153,13 +155,13 @@ fn main() {
         }
         if new_i8 != old_i8 {
             old_i8 = new_i8;
-            println!("output:{}, {}ms/clock", old_i8, tavg);
+            println!("output:{}, {}us/clock", old_i8, tavg);
         }
         if new_char != old_char {
             old_char = new_char;
-            println!("output:{}, {}ms/clock", old_char, tavg);
+            println!("output:{}, {}us/clock", old_char, tavg);
         }
-        tavg = (tavg + t.elapsed().as_millis()) / 2;
+        tavg = (tavg + t.elapsed().as_micros()) / 2;
         t = std::time::Instant::now();
     }
 }

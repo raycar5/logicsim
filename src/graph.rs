@@ -6,7 +6,6 @@ use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "debug_gate_names")]
 use std::collections::HashMap;
 use std::collections::{HashSet, VecDeque};
-use std::convert::TryInto;
 use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 use tinyset::SetUsize;
@@ -380,9 +379,9 @@ impl GateGraph {
                 }
                 continue;
             }
-            #[cfg(feature = "debug_gate_names")]
             let old_state = self.state.get_state(idx);
             self.state.set(idx, new_state);
+
             #[cfg(feature = "debug_gate_names")]
             if old_state != new_state {
                 if let Some(probe) = self.probes.get(&idx) {
@@ -396,8 +395,10 @@ impl GateGraph {
                     }
                 }
             }
-            self.propagation_queue
-                .extend(node.dependents.iter().map(|i| gi!(i)))
+            if node.ty.is_lever() || old_state != new_state {
+                self.propagation_queue
+                    .extend(node.dependents.iter().map(|i| gi!(i)))
+            }
         }
     }
     pub fn tick(&mut self) {
@@ -855,7 +856,6 @@ impl GateGraph {
             Keep1,
             Keep2,
         }
-        println!("work:{}", work.len());
         while let Some(WorkItem { idx, duplicates }) = work.pop() {
             // Don't optimize out observable things.
             let gate_dependencies = &mut self.nodes.get_mut(idx.idx).unwrap().dependencies;
@@ -891,7 +891,7 @@ impl GateGraph {
     }
     // Traverses the graph backwards from nodes with no dependants removing absorbing dependencies
     // and replacing them with a look up table.
-    // It's not that easy...
+    // It's not that easy... WIP, doing research
     fn lut_replacement_pass(&mut self) {
         let mut temp_dependencies = Vec::new();
 
@@ -1144,14 +1144,26 @@ impl GateGraph {
         let mut index = HashMap::new();
         for (i, node) in self.nodes.iter() {
             let is_out = self.outputs.contains(&gi!(i));
-            index.insert(
-                i,
-                graph.add_node(if is_out {
-                    format!("output:{}", node.ty)
-                } else {
-                    node.ty.to_string()
-                }),
-            );
+            #[cfg(feature = "debug_gate_names")]
+            let name = self
+                .names
+                .get(&gi!(i))
+                .map(|name| format!(":{}", name))
+                .unwrap_or("".to_string());
+
+            #[cfg(not(feature = "debug_gate_names"))]
+            let label = if is_out {
+                format!("output:{}", node.ty)
+            } else {
+                node.ty.to_string()
+            };
+            #[cfg(feature = "debug_gate_names")]
+            let label = if is_out {
+                format!("O:{}{}", node.ty, name)
+            } else {
+                format!("{}{}", node.ty, name)
+            };
+            index.insert(i, graph.add_node(label));
         }
         for (i, node) in self.nodes.iter() {
             graph.extend_with_edges(
@@ -1176,6 +1188,9 @@ impl GateGraph {
                 },
             );
         }
+    }
+    pub fn probe1<S: Into<String>>(&mut self, bit: GateIndex, name: S) {
+        self.probe(&[bit], name)
     }
 
     // Test operations.
@@ -1233,7 +1248,9 @@ mod tests {
         for _ in 0..10 {
             assert_eq!(output.b0(g), true);
         }
+        println!("b4lever");
         g.update_lever(set, true);
+        println!("aftlever");
 
         g.run_until_stable(10).unwrap();
         assert_eq!(output.b0(g), false);
