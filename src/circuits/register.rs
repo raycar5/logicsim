@@ -1,23 +1,29 @@
 use super::{bus_multiplexer, d_flip_flop, zeros};
 use crate::graph::*;
-pub const REGISTER: &str = "REGISTER";
 
-pub fn register(
+fn mkname(name: String) -> String {
+    format!("REG:{}", name)
+}
+
+pub fn register<S: Into<String>>(
     g: &mut GateGraph,
     input: &[GateIndex],
     clock: GateIndex,
     write: GateIndex,
     read: GateIndex,
     reset: GateIndex,
+    name: S,
 ) -> Vec<GateIndex> {
+    let name = mkname(name.into());
+
     let width = input.len();
     let mut out = Vec::new();
 
-    let write = g.or2(write, reset, REGISTER);
-    let new_input = bus_multiplexer(g, &[reset], &[input, &zeros(input.len())]);
+    let write = g.or2(write, reset, name.clone());
+    let new_input = bus_multiplexer(g, &[reset], &[input, &zeros(input.len())], name.clone());
     out.reserve(width);
     for bit in new_input {
-        out.push(d_flip_flop(g, bit, clock, write, read))
+        out.push(d_flip_flop(g, bit, clock, write, read, name.clone()))
     }
     out
 }
@@ -31,14 +37,14 @@ mod tests {
         let g = &mut GateGraph::new();
         let value = 3u8;
 
-        let input = WordInput::new(g, 8);
+        let input = WordInput::new(g, 8, "input");
 
         let read = g.lever("read");
         let write = g.lever("write");
         let reset = g.lever("reset");
         let clock = g.lever("clock");
 
-        let r = register(g, input.bits(), clock, write, read, reset);
+        let r = register(g, input.bits(), clock, write, read, reset, "reg");
 
         //let output =
         let out = g.output(&r, "out");

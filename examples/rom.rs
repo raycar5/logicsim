@@ -5,7 +5,7 @@ fn main() {
     let input1: Vec<_> = constant(1u8);
     let rom_out = g.lever("rom_out");
 
-    let output = rom(g, rom_out, &input1, &[4u8, 5u8, 6u8]);
+    let output = rom(g, rom_out, &input1, &[4u8, 5u8, 6u8], "rom");
     let out = g.output(&output, "out");
 
     g.init();

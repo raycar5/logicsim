@@ -3,9 +3,7 @@ use crate::slab::Slab;
 use crate::state::State;
 use bitvec::vec::BitVec;
 use smallvec::{smallvec, SmallVec};
-#[cfg(feature = "debug_gate_names")]
-use std::collections::HashMap;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 use tinyset::SetUsize;
@@ -1189,6 +1187,7 @@ impl GateGraph {
             );
         }
     }
+    #[cfg(feature = "debug_gate_names")]
     pub fn probe1<S: Into<String>>(&mut self, bit: GateIndex, name: S) {
         self.probe(&[bit], name)
     }

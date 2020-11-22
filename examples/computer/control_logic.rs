@@ -190,7 +190,7 @@ pub fn setup_control_logic(
     reset: GateIndex,
     mut signals: ControlSignalsSet,
 ) {
-    let ir_output = register(g, bus.bits(), clock, signals.ir_in().bit(), ON, reset);
+    let ir_output = register(g, bus.bits(), clock, signals.ir_in().bit(), ON, reset, "ir");
 
     let ir_data_output = bus_multiplexer(
         g,
@@ -203,13 +203,23 @@ pub fn setup_control_logic(
                 .copied()
                 .collect::<Vec<_>>(),
         ],
+        "ir_data",
     );
     bus.connect_some(g, &ir_data_output);
 
     signals.ic_reset().clone().connect(g, reset);
 
     let nclock = g.not1(clock, "nclock");
-    let instruction_counter = counter(g, nclock, ON, signals.ic_reset().bit(), ON, OFF, &zeros(3));
+    let instruction_counter = counter(
+        g,
+        nclock,
+        ON,
+        signals.ic_reset().bit(),
+        ON,
+        OFF,
+        &zeros(3),
+        "ic",
+    );
 
     let microinstruction_input: Vec<_> = instruction_counter
         .into_iter()
@@ -217,8 +227,13 @@ pub fn setup_control_logic(
         .chain(ir_output.iter().take(OPCODE_LENGTH as usize).copied())
         .collect();
 
-    let microinstruction_rom_output =
-        rom(g, ON, &microinstruction_input, &build_microinstructions());
+    let microinstruction_rom_output = rom(
+        g,
+        ON,
+        &microinstruction_input,
+        &build_microinstructions(),
+        "micro_rom",
+    );
 
     signals.connect(
         g,

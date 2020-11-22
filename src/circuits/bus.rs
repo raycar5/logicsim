@@ -1,16 +1,19 @@
 use super::Wire;
 use crate::graph::*;
 
-pub const BUS: &str = "BUS";
+fn mkname(name: String) -> String {
+    format!("BUS:{}", name)
+}
 
 #[derive(Debug, Clone)]
 pub struct Bus {
     bits: Vec<GateIndex>,
 }
 impl Bus {
-    pub fn new(g: &mut GateGraph, n: usize) -> Self {
+    pub fn new<S: Into<String>>(g: &mut GateGraph, n: usize, name: S) -> Self {
+        let name = mkname(name.into());
         Self {
-            bits: (0..n).map(|_| g.or(BUS)).collect(),
+            bits: (0..n).map(|_| g.or(name.clone())).collect(),
         }
     }
     pub fn connect(&mut self, g: &mut GateGraph, other: &[GateIndex]) {

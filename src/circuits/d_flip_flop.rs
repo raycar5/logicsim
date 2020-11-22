@@ -1,24 +1,31 @@
 use crate::graph::*;
-pub const D_FLIP_FLOP: &str = "d_flip_flop";
-pub fn d_flip_flop(
+
+fn mkname(name: String) -> String {
+    format!("DFLIPFLOP:{}", name)
+}
+
+pub fn d_flip_flop<S: Into<String>>(
     g: &mut GateGraph,
     d: GateIndex,
     clock: GateIndex,
     write: GateIndex,
     read: GateIndex,
+    name: S,
 ) -> GateIndex {
+    let name = mkname(name.into());
+
     let input = d;
-    let clock = g.and2(clock, write, D_FLIP_FLOP);
-    let ninput = g.not1(input, D_FLIP_FLOP);
+    let clock = g.and2(clock, write, name.clone());
+    let ninput = g.not1(input, name.clone());
 
-    let flip_and = g.and2(ninput, clock, D_FLIP_FLOP);
-    let flop_and = g.and2(input, clock, D_FLIP_FLOP);
+    let flip_and = g.and2(ninput, clock, name.clone());
+    let flop_and = g.and2(input, clock, name.clone());
 
-    let q = g.nor2(flip_and, OFF, D_FLIP_FLOP);
+    let q = g.nor2(flip_and, OFF, name.clone());
 
-    let nq = g.nor2(flop_and, q, D_FLIP_FLOP);
+    let nq = g.nor2(flop_and, q, name.clone());
     g.d1(q, nq);
-    g.and2(q, read, D_FLIP_FLOP)
+    g.and2(q, read, name)
 }
 
 #[cfg(test)]
@@ -34,7 +41,7 @@ mod tests {
         let write = g.lever("write");
         let clock = g.lever("clock");
 
-        let output = d_flip_flop(g, d, clock, write, read);
+        let output = d_flip_flop(g, d, clock, write, read, "flippity floop");
         let out = g.output1(output, "out");
         g.init();
 

@@ -1,9 +1,11 @@
 use super::{adder, bus_multiplexer, register, zeros, Bus};
 use crate::graph::*;
 
-pub const COUNTER: &str = "counter";
+fn mkname(name: String) -> String {
+    format!("CNTR:{}", name)
+}
 
-pub fn counter(
+pub fn counter<S: Into<String>>(
     g: &mut GateGraph,
     clock: GateIndex,
     enable: GateIndex,
@@ -11,19 +13,48 @@ pub fn counter(
     read: GateIndex,
     reset: GateIndex,
     input: &[GateIndex],
+    name: S,
 ) -> Vec<GateIndex> {
+    let name = mkname(name.into());
     let cin = enable;
 
-    let mut adder_input = Bus::new(g, input.len());
-    let adder_output = adder(g, cin, adder_input.bits(), &zeros(input.len()));
-    let nclock = g.not1(clock, COUNTER);
+    let mut adder_input = Bus::new(g, input.len(), name.clone());
+    let adder_output = adder(
+        g,
+        cin,
+        adder_input.bits(),
+        &zeros(input.len()),
+        name.clone(),
+    );
+    let nclock = g.not1(clock, name.clone());
 
-    let master_register_input = bus_multiplexer(g, &[write], &[&adder_output, input]);
-    let master_register_output = register(g, &master_register_input, nclock, ON, ON, reset);
-    let slave_register_output = register(g, &master_register_output, clock, ON, ON, reset);
+    let master_register_input = bus_multiplexer(g, &[write], &[&adder_output, input], name.clone());
+    let master_register_output = register(
+        g,
+        &master_register_input,
+        nclock,
+        ON,
+        ON,
+        reset,
+        name.clone(),
+    );
+    let slave_register_output = register(
+        g,
+        &master_register_output,
+        clock,
+        ON,
+        ON,
+        reset,
+        name.clone(),
+    );
     adder_input.connect(g, &slave_register_output);
 
-    bus_multiplexer(g, &[read], &[&zeros(input.len()), &slave_register_output])
+    bus_multiplexer(
+        g,
+        &[read],
+        &[&zeros(input.len()), &slave_register_output],
+        name.clone(),
+    )
 }
 #[cfg(test)]
 mod tests {
@@ -42,7 +73,7 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let c = counter(g, clock, enable, write, read, reset, input);
+        let c = counter(g, clock, enable, write, read, reset, input, "counter");
         let output = g.output(&c, "counter");
 
         g.init();
@@ -87,7 +118,7 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let c = counter(g, clock, ON, write, read, reset, input);
+        let c = counter(g, clock, ON, write, read, reset, input, "counter");
         let output = g.output(&c, "counter");
 
         g.init();
@@ -118,7 +149,7 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let c = counter(g, clock, ON, write, read, reset, input);
+        let c = counter(g, clock, ON, write, read, reset, input, "counter");
         let output = g.output(&c, "counter");
 
         g.init();
