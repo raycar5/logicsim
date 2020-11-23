@@ -53,6 +53,9 @@ impl<T: Sized> Slab<T> {
     pub fn len(&self) -> usize {
         self.data.len() - self.spaces.len()
     }
+    pub fn total_len(&self) -> usize {
+        self.data.len()
+    }
     pub fn iter<'a>(&'a self) -> SlabIter<'a, T> {
         SlabIter {
             iter: self.data.iter().enumerate(),

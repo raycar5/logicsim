@@ -128,14 +128,15 @@ impl Display for GateType {
 }
 use GateType::*;
 
+const GATE_TINYVEC_SIZE: usize = 2;
 #[derive(Clone)]
 struct Gate {
     ty: GateType,
-    dependencies: SmallVec<[GateIndex; 4]>,
+    dependencies: SmallVec<[GateIndex; GATE_TINYVEC_SIZE]>,
     dependents: IndexSet<usize>,
 }
 impl Gate {
-    fn new(ty: GateType, dependencies: SmallVec<[GateIndex; 4]>) -> Self {
+    fn new(ty: GateType, dependencies: SmallVec<[GateIndex; GATE_TINYVEC_SIZE]>) -> Self {
         Gate {
             ty,
             dependencies,
@@ -361,14 +362,16 @@ impl GateGraph {
         init
     }
     // Main logic.
+    // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
     fn tick_inner(&mut self) {
         while let Some(idx) = self.propagation_queue.pop_front() {
             let node = self.nodes.get(idx.idx).unwrap();
             let new_state = match &node.ty {
                 On => true,
                 Off => false,
-                Lever => self.state.get_state(idx),
-                Not => !self.state.get_state(node.dependencies[0]),
+                // This is safe because I fill the state on init.
+                Lever => unsafe { self.state.get_state_very_unsafely(idx) },
+                Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
                 Lut(lut) => {
                     let index = self.collect_usize_lossy(&node.dependencies);
                     lut[index]
@@ -380,7 +383,8 @@ impl GateGraph {
                         let state_iter = node
                             .dependencies
                             .iter()
-                            .map(|dep| self.state.get_state(*dep));
+                            // This is safe because I fill the state on init.
+                            .map(|dep| unsafe { self.state.get_state_very_unsafely(*dep) });
                         if node.ty.short_circuits() {
                             Self::fold_short(&node.ty, state_iter)
                         } else {
@@ -393,13 +397,15 @@ impl GateGraph {
                     new_state
                 }
             };
-            if let Some(old_state) = self.state.get_if_updated(idx) {
+            // This is safe because I fill the state on init.
+            if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
                 if old_state != new_state {
                     self.next_pending_updates.push(idx);
                 }
                 continue;
             }
-            let old_state = self.state.get_state(idx);
+            // This is safe because I fill the state on init.
+            let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
             self.state.set(idx, new_state);
 
             #[cfg(feature = "debug_gate_names")]
@@ -438,7 +444,7 @@ impl GateGraph {
         self.init_unoptimized();
     }
     pub fn init_unoptimized(&mut self) {
-        self.state.reserve(self.len());
+        self.state.fill_zero(self.nodes.total_len());
 
         for idx in self.nodes.iter().map(|(i, _)| gi!(i)).collect::<Vec<_>>() {
             if idx != OFF && idx != ON && self.state.get_updated(idx) {
@@ -913,7 +919,7 @@ impl GateGraph {
                     .copied(),
             );
             let ty = self.nodes.get(idx.idx).unwrap().ty.clone();
-            let mut new_dependencies = SmallVec::<[GateIndex; 4]>::new();
+            let mut new_dependencies = SmallVec::<[GateIndex; GATE_TINYVEC_SIZE]>::new();
             let mut lut: BitVec = BitVec::new();
 
             let subgraph = &mut GateGraph::new();
