@@ -142,9 +142,9 @@ fn main() {
 
     let mut t = std::time::Instant::now();
     let output = g.output(&rego_output, "output");
-    g.dump_dot(std::path::Path::new("computer_big.dot"));
-    g.init();
     g.dump_dot(std::path::Path::new("computer.dot"));
+    g.init();
+    g.dump_dot(std::path::Path::new("computer_optimized.dot"));
     g.run_until_stable(100).unwrap();
 
     // RESET
@@ -162,7 +162,7 @@ fn main() {
     let mut new_i8 = old_i8;
     let mut new_char = old_char;
 
-    for i in 0..10000 {
+    for i in 0..100000 {
         g.flip_lever_stable(clock_lever);
 
         if TEXT_OUTPUT {

@@ -556,7 +556,6 @@ impl GateGraph {
                     return Some(non_const_dependency);
                 }
             }
-            // TODO REMOVE THE DEPENDENCY LINKS
             return None;
         } else {
             // If there are only const dependencies and none of them are short circuits
@@ -701,16 +700,6 @@ impl GateGraph {
                 temp_dependents.extend(self.nodes.get(idx).unwrap().dependents.iter());
                 temp_dependencies.extend(self.nodes.get(idx).unwrap().dependencies.iter().copied());
 
-                /*
-                    println!(
-                        "replaced {:?}->{:?}:{}->{:?}",
-                        temp_dependencies.iter().map(|i| i.idx).collect::<Vec<_>>(),
-                        gate_type,
-                        idx,
-                        temp_dependents.iter().collect::<Vec<_>>(),
-                    );
-                }
-                */
                 for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
                     let dependency_dependents =
                         &mut self.nodes.get_mut(dependency.idx).unwrap().dependents;
@@ -725,25 +714,6 @@ impl GateGraph {
                     }))
                 }
 
-                /* BIG GUNS
-                let replacement_gate = self.nodes.get(replacement.idx).unwrap();
-                let mut dd = replacement_gate.dependents.iter().collect::<Vec<_>>();
-                if dd.len() > 10 {
-                    dd = vec![];
-                }
-                println!(
-                    "replacement {:?}->{:?}:{}->{:?}",
-                    replacement_gate
-                        .dependencies
-                        .iter()
-                        .map(|i| i.idx)
-                        .collect::<Vec<_>>(),
-                    replacement_gate.ty,
-                    replacement.idx,
-                    dd
-                );
-                println!("");
-                */
                 for dependent in temp_dependents.drain(0..temp_dependents.len()) {
                     // A gate can have the same dependency many times in different dependency indexes.
                     let positions = self
