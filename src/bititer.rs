@@ -1,5 +1,4 @@
 use smallvec::SmallVec;
-// TODO Macro.
 pub fn word_mask_64(index: usize) -> (usize, u64) {
     // This is safe because the divisor is a non zero constant.
     // Was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
@@ -22,7 +21,7 @@ pub struct BitIter {
     i: u8,
 }
 impl BitIter {
-    pub fn new<T>(item: T) -> Self {
+    pub fn new<T: Copy>(item: T) -> Self {
         let byte_size = std::mem::size_of::<T>();
         let bit_size = byte_size * 8;
 
@@ -33,6 +32,7 @@ impl BitIter {
         );
 
         let as_u8s: &[u8] =
+            // This is safe because any Copy item can be interpreted as a slice of bytes.
             unsafe { std::slice::from_raw_parts(std::mem::transmute(&item), byte_size) };
 
         Self {

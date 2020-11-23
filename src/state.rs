@@ -99,6 +99,8 @@ impl State {
     }
 
     pub fn dump(&self) {
+        // This is safe because a slice of u64 can be safely reinterpreted into
+        // a slice of u8.
         let slice = unsafe {
             std::slice::from_raw_parts(
                 self.states.as_ptr() as *const u8,

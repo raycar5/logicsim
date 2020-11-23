@@ -31,7 +31,7 @@ impl WordInput {
     pub fn reset_bit(&self, g: &mut GateGraph, bit: usize) -> Option<()> {
         self.update_bit(g, bit, true)
     }
-    pub fn set<T: std::fmt::Debug>(&self, g: &mut GateGraph, val: T) {
+    pub fn set<T: Copy>(&self, g: &mut GateGraph, val: T) {
         g.update_levers(&self.levers, BitIter::new(val));
     }
 

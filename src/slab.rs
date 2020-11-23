@@ -16,6 +16,7 @@ impl<'a, T> Iterator for SlabIter<'a, T> {
             if self.empty_spaces.contains(&i) {
                 continue;
             }
+            // This is safe because we check if the item is an empty space.
             unsafe { return Some((i, item.assume_init_ref())) };
         }
     }
@@ -42,6 +43,7 @@ impl<T: Sized> Slab<T> {
             if self.empty_spaces.contains(&space) {
                 return None;
             }
+            // This is safe because we check if the item is an empty space.
             unsafe { return Some(item.assume_init_mut()) };
         }
         None
@@ -56,10 +58,12 @@ impl<T: Sized> Slab<T> {
             if self.empty_spaces.contains(&space) {
                 return None;
             }
+            // This is safe because we check if the item is an empty space.
             unsafe { return Some(item.assume_init_ref()) };
         }
         None
     }
+    // All the safety in this data structure depends on the implementation of this method.
     pub fn remove(&mut self, space: usize) -> Option<T> {
         if let Some(position) = self.data.get_mut(space) {
             if self.empty_spaces.contains(&space) {
@@ -67,6 +71,7 @@ impl<T: Sized> Slab<T> {
             }
             self.empty_spaces.insert(space);
             let item = std::mem::replace(position, MaybeUninit::uninit());
+            // This is safe because we check if the item is an empty space.
             unsafe { return Some(item.assume_init()) };
         }
         None
