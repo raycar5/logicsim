@@ -2,6 +2,7 @@
 #![feature(maybe_uninit_ref)]
 #[macro_use]
 pub mod graph;
+pub mod double_stack;
 extern crate concat_idents;
 mod bititer;
 pub mod circuits;

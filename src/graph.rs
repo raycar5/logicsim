@@ -1,10 +1,11 @@
 use crate::bititer::BitIter;
+use crate::double_stack::DoubleStack;
 use crate::slab::Slab;
 use crate::state::State;
 use bitvec::vec::BitVec;
 use indexmap::IndexSet;
 use smallvec::{smallvec, SmallVec};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 
@@ -179,7 +180,7 @@ pub struct GateGraph {
     nodes: Slab<Gate>,
     pending_updates: Vec<GateIndex>,
     next_pending_updates: Vec<GateIndex>,
-    propagation_queue: VecDeque<GateIndex>, // allocated outside to prevent allocations in the hot loop.
+    propagation_stacks: DoubleStack<GateIndex>, // allocated outside to prevent allocations in the hot loop.
     outputs: HashSet<GateIndex>,
     state: State,
     #[cfg(feature = "debug_gate_names")]
@@ -205,7 +206,7 @@ impl GateGraph {
             pending_updates: vec![],
             next_pending_updates: vec![],
             state: State::new(),
-            propagation_queue: VecDeque::new(),
+            propagation_stacks: Default::default(),
             outputs: HashSet::new(),
             #[cfg(feature = "debug_gate_names")]
             names: HashMap::new(),
@@ -360,80 +361,84 @@ impl GateGraph {
     // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
     // All unsafe invariants are checked in debug mode using debug_assert!().
     fn tick_inner(&mut self) {
-        while let Some(idx) = self.propagation_queue.pop_front() {
-            // This is safe because the propagation queue gets filled by items coming from
-            // nodes.iter() or levers, both of which are always initialized.
-            let node = unsafe { self.nodes.get_very_unsafely(idx.idx) };
+        while !self.propagation_stacks.is_empty() {
+            self.propagation_stacks.swap();
+            while let Some(idx) = self.propagation_stacks.pop() {
+                // This is safe because the propagation queue gets filled by items coming from
+                // nodes.iter() or levers, both of which are always initialized.
+                let node = unsafe { self.nodes.get_very_unsafely(idx.idx) };
 
-            let new_state = match &node.ty {
-                On => true,
-                Off => false,
-                // This is safe because I fill the state on init.
-                Lever => unsafe { self.state.get_state_very_unsafely(idx) },
-                Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
-                Lut(lut) => {
-                    let index = self.collect_usize_lossy(&node.dependencies);
-                    lut[index]
-                }
-                Or | Nor | And | Nand | Xor | Xnor => {
-                    let mut new_state = if node.dependencies.is_empty() {
-                        false
-                    } else if node.ty.short_circuits() {
-                        // This is safe because I fill the state on init.
-                        unsafe { self.fold_short(&node.ty, &node.dependencies) }
-                    } else {
-                        let mut result = node.ty.init();
-
-                        // Using a manual loop results in 2% less instructions.
-                        #[allow(clippy::needless_range_loop)]
-                        for i in 0..node.dependencies.len() {
+                let new_state = match &node.ty {
+                    On => true,
+                    Off => false,
+                    // This is safe because I fill the state on init.
+                    Lever => unsafe { self.state.get_state_very_unsafely(idx) },
+                    Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
+                    Lut(lut) => {
+                        let index = self.collect_usize_lossy(&node.dependencies);
+                        lut[index]
+                    }
+                    Or | Nor | And | Nand | Xor | Xnor => {
+                        let mut new_state = if node.dependencies.is_empty() {
+                            false
+                        } else if node.ty.short_circuits() {
                             // This is safe because I fill the state on init.
-                            let state =
-                                unsafe { self.state.get_state_very_unsafely(node.dependencies[i]) };
-                            result = node.ty.accumulate(result, state);
-                        }
-                        result
-                    };
-                    if node.ty.is_negated() {
-                        new_state = !new_state;
-                    }
-                    new_state
-                }
-            };
-            // This is safe because I fill the state on init.
-            if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
-                if old_state != new_state {
-                    self.next_pending_updates.push(idx);
-                }
-                continue;
-            }
-            // This is safe because I fill the state on init.
-            let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
-            unsafe { self.state.set_very_unsafely(idx, new_state) };
+                            unsafe { self.fold_short(&node.ty, &node.dependencies) }
+                        } else {
+                            let mut result = node.ty.init();
 
-            #[cfg(feature = "debug_gate_names")]
-            if old_state != new_state {
-                if let Some(probe) = self.probes.get(&idx) {
-                    match probe.bits.len() {
-                        0 => {}
-                        1 => println!("{}:{}", probe.name, new_state),
-                        2..=8 => {
-                            println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
+                            // Using a manual loop results in 2% less instructions.
+                            #[allow(clippy::needless_range_loop)]
+                            for i in 0..node.dependencies.len() {
+                                // This is safe because I fill the state on init.
+                                let state = unsafe {
+                                    self.state.get_state_very_unsafely(node.dependencies[i])
+                                };
+                                result = node.ty.accumulate(result, state);
+                            }
+                            result
+                        };
+                        if node.ty.is_negated() {
+                            new_state = !new_state;
                         }
-                        _ => unimplemented!(),
+                        new_state
+                    }
+                };
+                // This is safe because I fill the state on init.
+                if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
+                    if old_state != new_state {
+                        self.next_pending_updates.push(idx);
+                    }
+                    continue;
+                }
+                // This is safe because I fill the state on init.
+                let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
+                unsafe { self.state.set_very_unsafely(idx, new_state) };
+
+                #[cfg(feature = "debug_gate_names")]
+                if old_state != new_state {
+                    if let Some(probe) = self.probes.get(&idx) {
+                        match probe.bits.len() {
+                            0 => {}
+                            1 => println!("{}:{}", probe.name, new_state),
+                            2..=8 => {
+                                println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
+                            }
+                            _ => unimplemented!(),
+                        }
                     }
                 }
-            }
-            if node.ty.is_lever() || old_state != new_state {
-                self.propagation_queue
-                    .extend(node.dependents.iter().map(|i| gi!(*i)))
+                if node.ty.is_lever() || old_state != new_state {
+                    self.propagation_stacks
+                        .extend(node.dependents.iter().map(|i| gi!(*i)))
+                }
             }
         }
     }
     pub fn tick(&mut self) {
         while let Some(pending) = &self.pending_updates.pop() {
             self.state.tick();
-            self.propagation_queue.push_back(*pending);
+            self.propagation_stacks.push(*pending);
             self.tick_inner()
         }
         self.pending_updates.extend(
@@ -453,7 +458,7 @@ impl GateGraph {
             if idx != OFF && idx != ON && self.state.get_updated(idx) {
                 continue;
             }
-            self.propagation_queue.push_back(idx);
+            self.propagation_stacks.push(idx);
             self.tick_inner();
         }
         self.pending_updates.extend(
