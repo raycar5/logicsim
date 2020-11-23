@@ -4,24 +4,36 @@ use num_integer::div_ceil;
 use pretty_hex::*;
 #[derive(Hash)]
 pub struct State {
-    states: Vec<u64>,
-    updated: Vec<u64>,
+    data: Vec<u64>,
 }
+enum BitType {
+    BitState,
+    Updated,
+}
+use BitType::*;
 impl State {
     pub fn new() -> State {
-        let states = Vec::new();
-        let updated = Vec::new();
-
-        State { states, updated }
+        State {
+            data: Default::default(),
+        }
     }
     pub fn fill_zero(&mut self, n: usize) {
-        self.states = vec![0; div_ceil(n, 64)];
-        self.updated = vec![0; div_ceil(n, 64)];
+        self.data = vec![0; div_ceil(n, 64) * 2];
     }
 
     #[inline(always)]
-    fn get_from_bit_vec(v: &[u64], real_index: usize) -> bool {
-        let (word_index, mask) = word_mask_64(real_index);
+    fn word_mask(index: usize, ty: BitType) -> (usize, u64) {
+        let (word_index, mask) = word_mask_64(index);
+        if matches!(ty, BitState) {
+            (word_index * 2, mask)
+        } else {
+            (word_index * 2 + 1, mask)
+        }
+    }
+
+    #[inline(always)]
+    fn get_from_bit_vec(v: &[u64], index: usize, ty: BitType) -> bool {
+        let (word_index, mask) = Self::word_mask(index, ty);
         let word = v.get(word_index);
         if let Some(word) = word {
             word & mask != 0
@@ -38,7 +50,7 @@ impl State {
             return true;
         }
 
-        Self::get_from_bit_vec(&self.states, index.idx)
+        Self::get_from_bit_vec(&self.data, index.idx, BitState)
     }
 
     pub fn get_updated(&self, index: GateIndex) -> bool {
@@ -46,7 +58,7 @@ impl State {
             return true;
         }
 
-        Self::get_from_bit_vec(&self.updated, index.idx)
+        Self::get_from_bit_vec(&self.data, index.idx, Updated)
     }
 
     pub fn get_if_updated(&self, index: GateIndex) -> Option<bool> {
@@ -58,42 +70,42 @@ impl State {
     }
 
     fn reserve_for_word(&mut self, word_index: usize) {
-        let len = self.states.len();
+        let len = self.data.len();
         let diff = word_index as i64 + 1 - len as i64;
         if diff > 0 {
-            self.states.reserve(diff as usize);
-            self.updated.reserve(diff as usize);
+            self.data.reserve(diff as usize);
 
-            self.states.extend((0..diff).map(|_| 0));
-            self.updated.extend((0..diff).map(|_| 0));
+            self.data.extend((0..diff).map(|_| 0));
         }
     }
 
     pub fn set(&mut self, index: GateIndex, value: bool) {
-        let (word_index, mask) = word_mask_64(index.idx);
+        let (state_word_index, mask) = Self::word_mask(index.idx, BitState);
+        let update_word_index = state_word_index + 1;
+        self.reserve_for_word(update_word_index);
 
-        self.reserve_for_word(word_index);
-
-        let state = &mut self.states[word_index];
+        let state = &mut self.data[state_word_index];
         if value {
             *state |= mask;
         } else {
             *state &= !mask;
         }
 
-        let updated = &mut self.updated[word_index];
-        *updated |= mask;
+        let update = &mut self.data[update_word_index];
+        *update |= mask;
     }
 
     pub fn set_updated(&mut self, index: GateIndex) {
-        let (word_index, mask) = word_mask_64(index.idx);
+        let (word_index, mask) = Self::word_mask(index.idx, Updated);
+
         self.reserve_for_word(word_index);
-        let updated = &mut self.updated[word_index];
-        *updated |= mask;
+
+        let word = &mut self.data[word_index];
+        *word |= mask;
     }
 
     pub fn tick(&mut self) {
-        for updated in &mut self.updated {
+        for updated in self.data.iter_mut().skip(1).step_by(2) {
             *updated = 0
         }
     }
@@ -103,8 +115,8 @@ impl State {
         // a slice of u8.
         let slice = unsafe {
             std::slice::from_raw_parts(
-                self.states.as_ptr() as *const u8,
-                self.states.len() * std::mem::size_of::<u64>(),
+                self.data.as_ptr() as *const u8,
+                self.data.len() * std::mem::size_of::<u64>(),
             )
         };
         println!("{}", pretty_hex(&slice));
@@ -115,8 +127,8 @@ impl State {
     /// This function is safe if real_index < v.len() .
     /// This invariant is checked in debug mode.
     #[inline(always)]
-    unsafe fn get_from_bit_vec_very_unsafely(v: &[u64], real_index: usize) -> bool {
-        let (word_index, mask) = word_mask_64(real_index);
+    unsafe fn get_from_bit_vec_very_unsafely(v: &[u64], index: usize, ty: BitType) -> bool {
+        let (word_index, mask) = Self::word_mask(index, ty);
         debug_assert!(word_index < v.len());
 
         let word = v.get_unchecked(word_index);
@@ -126,13 +138,13 @@ impl State {
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
     pub unsafe fn get_state_very_unsafely(&self, index: GateIndex) -> bool {
-        Self::get_from_bit_vec_very_unsafely(&self.states, index.idx)
+        Self::get_from_bit_vec_very_unsafely(&self.data, index.idx, BitState)
     }
     /// # Safety
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
     pub unsafe fn get_updated_very_unsafely(&self, index: GateIndex) -> bool {
-        Self::get_from_bit_vec_very_unsafely(&self.updated, index.idx)
+        Self::get_from_bit_vec_very_unsafely(&self.data, index.idx, Updated)
     }
     /// # Safety
     /// This function is safe if index < [State::len()].
@@ -148,19 +160,17 @@ impl State {
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
     pub unsafe fn set_very_unsafely(&mut self, index: GateIndex, value: bool) {
-        let (word_index, mask) = word_mask_64(index.idx);
+        let (state_word_index, mask) = Self::word_mask(index.idx, BitState);
+        let updated_word_index = state_word_index + 1;
+        debug_assert!(updated_word_index < self.data.len());
 
-        debug_assert!(word_index < self.states.len());
-        debug_assert!(word_index < self.updated.len());
-
-        let state = self.states.get_unchecked_mut(word_index);
+        let state = self.data.get_unchecked_mut(state_word_index);
         if value {
             *state |= mask;
         } else {
             *state &= !mask;
         }
-
-        let updated = &mut self.updated[word_index];
+        let updated = self.data.get_unchecked_mut(updated_word_index);
         *updated |= mask;
     }
 }
@@ -206,7 +216,6 @@ mod tests {
             assert_eq!(state.get_updated(gi!(i)), true, "index: {}", i);
 
             state.tick();
-
             assert_eq!(state.get_state(gi!(i)), true, "index: {}", i);
             assert_eq!(state.get_updated(gi!(i)), false, "index: {}", i);
         }
