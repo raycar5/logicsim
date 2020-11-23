@@ -66,8 +66,8 @@ pub enum GateType {
 impl GateType {
     fn accumulate(&self, acc: bool, b: bool) -> bool {
         match self {
-            Or | Nor => acc || b,
-            And | Nand => acc && b,
+            Or | Nor => acc | b,
+            And | Nand => acc & b,
             Xor | Xnor => acc ^ b,
             On | Off | Lever | Not | Lut(..) => unreachable!(),
         }
@@ -78,6 +78,13 @@ impl GateType {
             And | Nand => true,
             Not => false,
             On | Off | Lever | Lut(..) => unreachable!(),
+        }
+    }
+    fn short_circuits(&self) -> bool {
+        match self {
+            Xor | Xnor => false,
+            Or | Nor | And | Nand => true,
+            Not | On | Off | Lever | Lut(..) => unreachable!(),
         }
     }
     fn is_lever(&self) -> bool {
@@ -343,6 +350,16 @@ impl GateGraph {
         idx
     }
 
+    fn fold_short<I: Iterator<Item = bool>>(ty: &GateType, iter: I) -> bool {
+        let init = ty.init();
+        let short = !init;
+        for item in iter {
+            if ty.accumulate(init, item) == short {
+                return short;
+            }
+        }
+        init
+    }
     // Main logic.
     fn tick_inner(&mut self) {
         while let Some(idx) = self.propagation_queue.pop_front() {
@@ -360,10 +377,15 @@ impl GateGraph {
                     let mut new_state = if node.dependencies.is_empty() {
                         false
                     } else {
-                        node.dependencies
+                        let state_iter = node
+                            .dependencies
                             .iter()
-                            .map(|dep| self.state.get_state(*dep))
-                            .fold(node.ty.init(), |acc, s| node.ty.accumulate(acc, s))
+                            .map(|dep| self.state.get_state(*dep));
+                        if node.ty.short_circuits() {
+                            Self::fold_short(&node.ty, state_iter)
+                        } else {
+                            state_iter.fold(node.ty.init(), |acc, b| node.ty.accumulate(acc, b))
+                        }
                     };
                     if node.ty.is_negated() {
                         new_state = !new_state;
