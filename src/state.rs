@@ -1,5 +1,6 @@
 use crate::bititer::word_mask_64;
 use crate::graph::GateIndex;
+use num_integer::div_ceil;
 use pretty_hex::*;
 #[derive(Hash)]
 pub struct State {
@@ -14,8 +15,8 @@ impl State {
         State { states, updated }
     }
     pub fn fill_zero(&mut self, n: usize) {
-        self.states = vec![0; n / 64];
-        self.updated = vec![0; n / 64];
+        self.states = vec![0; div_ceil(n, 64)];
+        self.updated = vec![0; div_ceil(n, 64)];
     }
 
     #[inline(always)]
@@ -111,6 +112,8 @@ impl State {
     #[inline(always)]
     unsafe fn get_from_bit_vec_very_unsafely(v: &Vec<u64>, real_index: usize) -> bool {
         let (word_index, mask) = word_mask_64(real_index);
+        debug_assert!(word_index < v.len());
+
         let word = v.get_unchecked(word_index);
         word & mask != 0
     }
@@ -127,6 +130,22 @@ impl State {
         } else {
             None
         }
+    }
+    pub unsafe fn set_very_unsafely(&mut self, index: GateIndex, value: bool) {
+        let (word_index, mask) = word_mask_64(index.idx);
+
+        debug_assert!(word_index < self.states.len());
+        debug_assert!(word_index < self.updated.len());
+
+        let state = self.states.get_unchecked_mut(word_index);
+        if value {
+            *state = *state | mask;
+        } else {
+            *state = *state & !mask;
+        }
+
+        let updated = &mut self.updated[word_index];
+        *updated = *updated | mask;
     }
 }
 

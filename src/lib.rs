@@ -1,3 +1,4 @@
+#![feature(maybe_uninit_ref)]
 #[macro_use]
 pub mod graph;
 extern crate concat_idents;

@@ -363,9 +363,12 @@ impl GateGraph {
     }
     // Main logic.
     // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
+    // All unsafe invariants are checked in debug mode using debug_assert!().
     fn tick_inner(&mut self) {
         while let Some(idx) = self.propagation_queue.pop_front() {
-            let node = self.nodes.get(idx.idx).unwrap();
+            // This is safe because the propagation queue gets filled by items coming from
+            // nodes.iter() or levers, both of which are always initialized.
+            let node = unsafe { self.nodes.get_very_unsafely(idx.idx) };
             let new_state = match &node.ty {
                 On => true,
                 Off => false,
@@ -406,7 +409,8 @@ impl GateGraph {
             }
             // This is safe because I fill the state on init.
             let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
-            self.state.set(idx, new_state);
+            // This is safe because I fill the state on init.
+            unsafe { self.state.set_very_unsafely(idx, new_state) };
 
             #[cfg(feature = "debug_gate_names")]
             if old_state != new_state {
