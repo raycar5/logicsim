@@ -1,9 +1,11 @@
 use smallvec::SmallVec;
+
+// Method was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
 pub fn word_mask_64(index: usize) -> (usize, u64) {
     // This is safe because the divisor is a non zero constant.
-    // Was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
     let word = unsafe { std::intrinsics::unchecked_div(index, 64) };
-    // This is safe because the divisor is a non zero constant and the shift can't be more than 64;
+    // This is safe because the divisor is a non zero constant
+    // and the right operand of the shift can't be more than 64.
     let mask = unsafe {
         std::intrinsics::unchecked_shl(1u64, std::intrinsics::unchecked_rem(index, 64) as u64)
     };
@@ -51,7 +53,7 @@ impl Iterator for BitIter {
         let (word_index, word_mask) = word_mask_8(self.i as usize);
 
         let result = self.item[word_index] & word_mask != 0;
-        self.i = self.i + 1;
+        self.i += 1;
 
         Some(result)
     }

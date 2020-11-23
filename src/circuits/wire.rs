@@ -16,7 +16,7 @@ impl Wire {
     pub fn new<S: Into<String>>(g: &mut GateGraph, name: S) -> Self {
         let name = name.into();
         Self {
-            bit: g.or(format!("WIRE:{}", name.clone())),
+            bit: g.or(format!("WIRE:{}", name)),
             lever: None,
             name,
         }

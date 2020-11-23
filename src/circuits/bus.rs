@@ -32,6 +32,9 @@ impl Bus {
     pub fn len(&self) -> usize {
         self.bits.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.bits.len() == 0
+    }
     pub fn bits(&self) -> &[GateIndex] {
         &self.bits
     }

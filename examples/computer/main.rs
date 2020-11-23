@@ -19,9 +19,9 @@ fn main() {
     let reset_lever = reset.lever(g);
     let nclock = g.not1(clock.bit(), "nclock");
 
-    const TEXT_OUTPUT: bool = false;
-    let rom_data = programs::multiply_rom(51, -2i8 as u8);
-    //let rom_data = programs::echo_rom("Heya world");
+    const TEXT_OUTPUT: bool = true;
+    //let rom_data = programs::multiply_rom(51, -2i8 as u8);
+    let rom_data = programs::echo_rom("Heya world");
 
     let signals = ControlSignalsSet::new(g);
     let pc_output = counter(
