@@ -239,6 +239,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-integer"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
+dependencies = [
+ "autocfg",
+ "num-traits",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "num_enum"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -455,6 +474,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unchecked_unwrap"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4da3758203a1b51dde0aa9ab4b8d75761cda72b1a467a0a47205491cf0942e4e"
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -508,6 +533,7 @@ dependencies = [
  "colour",
  "concat-idents",
  "indexmap",
+ "num-integer",
  "num_enum",
  "petgraph",
  "pretty-hex",
@@ -515,6 +541,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "termion",
+ "unchecked_unwrap",
 ]
 
 [[package]]
