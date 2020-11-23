@@ -20,7 +20,7 @@ impl State {
     }
 
     #[inline(always)]
-    fn get_from_bit_vec(v: &Vec<u64>, real_index: usize) -> bool {
+    fn get_from_bit_vec(v: &[u64], real_index: usize) -> bool {
         let (word_index, mask) = word_mask_64(real_index);
         let word = v.get(word_index);
         if let Some(word) = word {
@@ -76,20 +76,20 @@ impl State {
 
         let state = &mut self.states[word_index];
         if value {
-            *state = *state | mask;
+            *state |= mask;
         } else {
-            *state = *state & !mask;
+            *state &= !mask;
         }
 
         let updated = &mut self.updated[word_index];
-        *updated = *updated | mask;
+        *updated |= mask;
     }
 
     pub fn set_updated(&mut self, index: GateIndex) {
         let (word_index, mask) = word_mask_64(index.idx);
         self.reserve_for_word(word_index);
         let updated = &mut self.updated[word_index];
-        *updated = *updated | mask;
+        *updated |= mask;
     }
 
     pub fn tick(&mut self) {
@@ -111,21 +111,32 @@ impl State {
     }
 
     // The dark corner.
+    /// # Safety
+    /// This function is safe if real_index < v.len() .
+    /// This invariant is checked in debug mode.
     #[inline(always)]
-    unsafe fn get_from_bit_vec_very_unsafely(v: &Vec<u64>, real_index: usize) -> bool {
+    unsafe fn get_from_bit_vec_very_unsafely(v: &[u64], real_index: usize) -> bool {
         let (word_index, mask) = word_mask_64(real_index);
         debug_assert!(word_index < v.len());
 
         let word = v.get_unchecked(word_index);
         word & mask != 0
     }
-
+    /// # Safety
+    /// This function is safe if index < [State::len()].
+    /// This invariant is checked in debug mode.
     pub unsafe fn get_state_very_unsafely(&self, index: GateIndex) -> bool {
         Self::get_from_bit_vec_very_unsafely(&self.states, index.idx)
     }
+    /// # Safety
+    /// This function is safe if index < [State::len()].
+    /// This invariant is checked in debug mode.
     pub unsafe fn get_updated_very_unsafely(&self, index: GateIndex) -> bool {
         Self::get_from_bit_vec_very_unsafely(&self.updated, index.idx)
     }
+    /// # Safety
+    /// This function is safe if index < [State::len()].
+    /// This invariant is checked in debug mode.
     pub unsafe fn get_if_updated_very_unsafely(&self, index: GateIndex) -> Option<bool> {
         if self.get_updated_very_unsafely(index) {
             Some(self.get_state_very_unsafely(index))
@@ -133,6 +144,9 @@ impl State {
             None
         }
     }
+    /// # Safety
+    /// This function is safe if index < [State::len()].
+    /// This invariant is checked in debug mode.
     pub unsafe fn set_very_unsafely(&mut self, index: GateIndex, value: bool) {
         let (word_index, mask) = word_mask_64(index.idx);
 
@@ -141,13 +155,18 @@ impl State {
 
         let state = self.states.get_unchecked_mut(word_index);
         if value {
-            *state = *state | mask;
+            *state |= mask;
         } else {
-            *state = *state & !mask;
+            *state &= !mask;
         }
 
         let updated = &mut self.updated[word_index];
-        *updated = *updated | mask;
+        *updated |= mask;
+    }
+}
+impl Default for State {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

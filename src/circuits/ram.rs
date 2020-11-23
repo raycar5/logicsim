@@ -5,6 +5,8 @@ fn mkname(name: String) -> String {
     format!("RAM:{}", name)
 }
 
+// rust-analyzer makes this a non issue.
+#[allow(clippy::too_many_arguments)]
 pub fn ram<S: Into<String>>(
     g: &mut GateGraph,
     read: GateIndex,

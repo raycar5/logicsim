@@ -48,6 +48,10 @@ impl<T: Sized> Slab<T> {
         }
         None
     }
+    /// # Safety
+    /// This function is safe as long as space < [Slab::total_len()]
+    /// and the item at space has not been removed.
+    /// This invariants are checked in debug mode.
     pub unsafe fn get_very_unsafely(&self, space: usize) -> &T {
         debug_assert!(space < self.data.len());
         debug_assert!(!self.empty_spaces.contains(&space));
@@ -79,13 +83,22 @@ impl<T: Sized> Slab<T> {
     pub fn len(&self) -> usize {
         self.data.len() - self.empty_spaces.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
     pub fn total_len(&self) -> usize {
         self.data.len()
     }
-    pub fn iter<'a>(&'a self) -> SlabIter<'a, T> {
+    pub fn iter(&self) -> SlabIter<T> {
         SlabIter {
             iter: self.data.iter().enumerate(),
             empty_spaces: &self.empty_spaces,
         }
+    }
+}
+
+impl<T> Default for Slab<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }

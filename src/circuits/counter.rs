@@ -5,6 +5,8 @@ fn mkname(name: String) -> String {
     format!("CNTR:{}", name)
 }
 
+// rust-analyzer makes this a non issue.
+#[allow(clippy::too_many_arguments)]
 pub fn counter<S: Into<String>>(
     g: &mut GateGraph,
     clock: GateIndex,
@@ -53,7 +55,7 @@ pub fn counter<S: Into<String>>(
         g,
         &[read],
         &[&zeros(input.len()), &slave_register_output],
-        name.clone(),
+        name,
     )
 }
 #[cfg(test)]

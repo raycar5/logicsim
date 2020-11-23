@@ -91,25 +91,13 @@ impl GateType {
         }
     }
     fn is_lever(&self) -> bool {
-        if let Lever = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Lever)
     }
     fn is_negated(&self) -> bool {
-        if let Nor | Nand | Not | Xnor = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Nor | Nand | Not | Xnor)
     }
     fn is_not(&self) -> bool {
-        if let Not = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Not)
     }
 }
 impl Display for GateType {
@@ -230,9 +218,9 @@ impl GateGraph {
     pub fn dpush(&mut self, idx: GateIndex, new_dep: GateIndex) {
         let gate = self.nodes.get_mut(idx.idx).unwrap();
         match gate.ty {
-            Off => assert!(false, "OFF has no dependencies"),
-            On => assert!(false, "ON has no dependencies"),
-            Lever => assert!(false, "Lever has no dependencies"),
+            Off => panic!("OFF has no dependencies"),
+            On => panic!("ON has no dependencies"),
+            Lever => panic!("Lever has no dependencies"),
             Or | Nor | And | Nand | Xor | Xnor | Not | Lut(..) => {
                 gate.dependencies.push(new_dep);
                 self.nodes
@@ -246,9 +234,9 @@ impl GateGraph {
     pub fn dx(&mut self, idx: GateIndex, new_dep: GateIndex, x: usize) {
         let gate = self.nodes.get_mut(idx.idx).unwrap();
         match gate.ty {
-            Off => assert!(false, "OFF has no dependencies"),
-            On => assert!(false, "ON has no dependencies"),
-            Lever => assert!(false, "Lever has no dependencies"),
+            Off => panic!("OFF has no dependencies"),
+            On => panic!("ON has no dependencies"),
+            Lever => panic!("Lever has no dependencies"),
             Lut(..) => unimplemented!(""),
             Not => {
                 assert!(x == 0, "Not only has one dependency");
@@ -359,6 +347,7 @@ impl GateGraph {
         let init = ty.init();
         let short = !init;
         // Using a manual loop results in 2% less instructions.
+        #[allow(clippy::needless_range_loop)]
         for i in 0..gates.len() {
             let state = self.state.get_state_very_unsafely(gates[i]);
             if ty.accumulate(init, state) == short {
@@ -389,22 +378,21 @@ impl GateGraph {
                 Or | Nor | And | Nand | Xor | Xnor => {
                     let mut new_state = if node.dependencies.is_empty() {
                         false
+                    } else if node.ty.short_circuits() {
+                        // This is safe because I fill the state on init.
+                        unsafe { self.fold_short(&node.ty, &node.dependencies) }
                     } else {
-                        if node.ty.short_circuits() {
+                        let mut result = node.ty.init();
+
+                        // Using a manual loop results in 2% less instructions.
+                        #[allow(clippy::needless_range_loop)]
+                        for i in 0..node.dependencies.len() {
                             // This is safe because I fill the state on init.
-                            unsafe { self.fold_short(&node.ty, &node.dependencies) }
-                        } else {
-                            let mut result = node.ty.init();
-                            // Using a manual loop results in 2% less instructions.
-                            for i in 0..node.dependencies.len() {
-                                // This is safe because I fill the state on init.
-                                let state = unsafe {
-                                    self.state.get_state_very_unsafely(node.dependencies[i])
-                                };
-                                result = node.ty.accumulate(result, state);
-                            }
-                            result
+                            let state =
+                                unsafe { self.state.get_state_very_unsafely(node.dependencies[i]) };
+                            result = node.ty.accumulate(result, state);
                         }
+                        result
                     };
                     if node.ty.is_negated() {
                         new_state = !new_state;
@@ -473,14 +461,14 @@ impl GateGraph {
                 .drain(0..self.next_pending_updates.len()),
         )
     }
-    pub fn run_until_stable(&mut self, max: usize) -> Result<usize, ()> {
+    pub fn run_until_stable(&mut self, max: usize) -> Result<usize, &'static str> {
         for i in 0..max {
             if self.pending_updates.is_empty() {
                 return Ok(i);
             }
             self.tick();
         }
-        Err(())
+        Err("Your graph didn't stabilize")
     }
 
     // Optimizations
@@ -599,7 +587,7 @@ impl GateGraph {
                     return Some(non_const_dependency);
                 }
             }
-            return None;
+            None
         } else {
             // If there are only const dependencies and none of them are short circuits
             // the output must be the opposite of the short_circuit output.
@@ -637,7 +625,7 @@ impl GateGraph {
             .enumerate()
         {
             if dependency.is_const() {
-                output = output ^ dependency.is_on()
+                output ^= dependency.is_on()
             } else {
                 non_const_dependency = Some((dependency, i))
             }
@@ -851,7 +839,7 @@ impl GateGraph {
                 // Detect duplicate dependencies and how many times they are duplicated.
                 for dependency in gate.dependencies.iter().copied() {
                     let entry = dependency_multi_map.entry(dependency).or_default();
-                    *entry = *entry + 1
+                    *entry += 1
                 }
 
                 let idx = gi!(idx);
@@ -1109,10 +1097,10 @@ impl GateGraph {
 
         for bit in outputs.iter().take(8) {
             if self.value(*bit) {
-                output = output | mask
+                output |= mask
             }
 
-            mask = mask << 1;
+            mask <<= 1;
         }
 
         output
@@ -1124,10 +1112,10 @@ impl GateGraph {
 
         for bit in outputs.iter().take(usize_width) {
             if self.value(*bit) {
-                output = output | mask
+                output |= mask
             }
 
-            mask = mask << 1;
+            mask <<= 1;
         }
 
         output
@@ -1140,16 +1128,19 @@ impl GateGraph {
 
         for bit in outputs.iter().take(128) {
             if self.value(*bit) {
-                output = output | mask
+                output |= mask
             }
 
-            mask = mask << 1;
+            mask <<= 1;
         }
 
         output
     }
     pub fn len(&self) -> usize {
         self.nodes.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.nodes.len() == 0
     }
     pub fn dump_dot(&self, filename: &Path) {
         use petgraph::dot::{Config, Dot};
@@ -1236,6 +1227,12 @@ impl GateGraph {
             expected.start,
             expected.end
         );
+    }
+}
+
+impl Default for GateGraph {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

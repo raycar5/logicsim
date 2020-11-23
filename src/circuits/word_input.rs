@@ -41,4 +41,7 @@ impl WordInput {
     pub fn len(&self) -> usize {
         self.levers.len()
     }
+    pub fn is_empty(&self) -> bool {
+        self.levers.len() == 0
+    }
 }
