@@ -6,7 +6,6 @@ use smallvec::{smallvec, SmallVec};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Display, Formatter};
 use std::path::Path;
-use tinyset::SetUsize;
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Ord, PartialOrd)]
 pub struct GateIndex {
@@ -125,14 +124,14 @@ use GateType::*;
 struct Gate {
     ty: GateType,
     dependencies: SmallVec<[GateIndex; 4]>,
-    dependents: SetUsize,
+    dependents: HashSet<usize>,
 }
 impl Gate {
     fn new(ty: GateType, dependencies: SmallVec<[GateIndex; 4]>) -> Self {
         Gate {
             ty,
             dependencies,
-            dependents: SetUsize::new(),
+            dependents: HashSet::new(),
         }
     }
 }
@@ -194,12 +193,12 @@ impl GateGraph {
         nodes.insert(Gate {
             ty: Off,
             dependencies: smallvec![],
-            dependents: SetUsize::new(),
+            dependents: HashSet::new(),
         });
         nodes.insert(Gate {
             ty: On,
             dependencies: smallvec![],
-            dependents: SetUsize::new(),
+            dependents: HashSet::new(),
         });
         GateGraph {
             nodes,
@@ -252,7 +251,7 @@ impl GateGraph {
             .get_mut(old_dep.idx)
             .unwrap()
             .dependents
-            .remove(idx.idx);
+            .remove(&idx.idx);
         self.nodes
             .get_mut(new_dep.idx)
             .unwrap()
@@ -395,7 +394,7 @@ impl GateGraph {
             }
             if node.ty.is_lever() || old_state != new_state {
                 self.propagation_queue
-                    .extend(node.dependents.iter().map(|i| gi!(i)))
+                    .extend(node.dependents.iter().map(|i| gi!(*i)))
             }
         }
     }
@@ -703,7 +702,7 @@ impl GateGraph {
                 for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
                     let dependency_dependents =
                         &mut self.nodes.get_mut(dependency.idx).unwrap().dependents;
-                    dependency_dependents.remove(idx);
+                    dependency_dependents.remove(&idx);
                 }
 
                 if replacement.is_const() {
@@ -779,7 +778,7 @@ impl GateGraph {
 
             for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
                 let dependency_gate = self.nodes.get_mut(dependency.idx).unwrap();
-                dependency_gate.dependents.remove(idx.idx);
+                dependency_gate.dependents.remove(&idx.idx);
                 if dependency_gate.dependents.is_empty() {
                     work.push(dependency)
                 }
@@ -940,7 +939,7 @@ impl GateGraph {
                     .get_mut(dependency.idx)
                     .unwrap()
                     .dependents
-                    .remove(idx.idx);
+                    .remove(&idx.idx);
             }
             for dependency in &new_dependencies {
                 self.nodes
