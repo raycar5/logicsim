@@ -142,9 +142,9 @@ fn main() {
 
     let mut t = std::time::Instant::now();
     let output = g.output(&rego_output, "output");
-    g.dump_dot(std::path::Path::new("computer.dot"));
+    //g.dump_dot(std::path::Path::new("computer.dot"));
     g.init();
-    g.dump_dot(std::path::Path::new("computer_optimized.dot"));
+    //g.dump_dot(std::path::Path::new("computer_optimized.dot"));
     g.run_until_stable(100).unwrap();
 
     // RESET
@@ -183,4 +183,5 @@ fn main() {
             t = std::time::Instant::now();
         }
     }
+    println!("{}us/clock avg", tmavg);
 }

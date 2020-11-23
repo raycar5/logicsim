@@ -162,7 +162,7 @@ mod tests {
         for i in 0..10 {
             g.set_lever(clock);
             g.reset_lever(clock);
-            g.assert_propagation(0);
+            g.assert_propagation_range(0..2);
             assert_eq!(output.u8(g), i);
         }
 
