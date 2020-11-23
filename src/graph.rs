@@ -64,6 +64,7 @@ pub enum GateType {
     Lut(BitVec),
 }
 impl GateType {
+    #[inline(always)]
     fn accumulate(&self, acc: bool, b: bool) -> bool {
         match self {
             Or | Nor => acc | b,
@@ -72,6 +73,7 @@ impl GateType {
             On | Off | Lever | Not | Lut(..) => unreachable!(),
         }
     }
+    #[inline(always)]
     fn init(&self) -> bool {
         match self {
             Or | Nor | Xor | Xnor => false,
@@ -80,6 +82,7 @@ impl GateType {
             On | Off | Lever | Lut(..) => unreachable!(),
         }
     }
+    #[inline(always)]
     fn short_circuits(&self) -> bool {
         match self {
             Xor | Xnor => false,
@@ -351,11 +354,14 @@ impl GateGraph {
         idx
     }
 
-    fn fold_short<I: Iterator<Item = bool>>(ty: &GateType, iter: I) -> bool {
+    #[inline(always)]
+    unsafe fn fold_short(&self, ty: &GateType, gates: &[GateIndex]) -> bool {
         let init = ty.init();
         let short = !init;
-        for item in iter {
-            if ty.accumulate(init, item) == short {
+        // Using a manual loop results in 2% less instructions.
+        for i in 0..gates.len() {
+            let state = self.state.get_state_very_unsafely(gates[i]);
+            if ty.accumulate(init, state) == short {
                 return short;
             }
         }
@@ -369,6 +375,7 @@ impl GateGraph {
             // This is safe because the propagation queue gets filled by items coming from
             // nodes.iter() or levers, both of which are always initialized.
             let node = unsafe { self.nodes.get_very_unsafely(idx.idx) };
+
             let new_state = match &node.ty {
                 On => true,
                 Off => false,
@@ -383,15 +390,20 @@ impl GateGraph {
                     let mut new_state = if node.dependencies.is_empty() {
                         false
                     } else {
-                        let state_iter = node
-                            .dependencies
-                            .iter()
-                            // This is safe because I fill the state on init.
-                            .map(|dep| unsafe { self.state.get_state_very_unsafely(*dep) });
                         if node.ty.short_circuits() {
-                            Self::fold_short(&node.ty, state_iter)
+                            // This is safe because I fill the state on init.
+                            unsafe { self.fold_short(&node.ty, &node.dependencies) }
                         } else {
-                            state_iter.fold(node.ty.init(), |acc, b| node.ty.accumulate(acc, b))
+                            let mut result = node.ty.init();
+                            // Using a manual loop results in 2% less instructions.
+                            for i in 0..node.dependencies.len() {
+                                // This is safe because I fill the state on init.
+                                let state = unsafe {
+                                    self.state.get_state_very_unsafely(node.dependencies[i])
+                                };
+                                result = node.ty.accumulate(result, state);
+                            }
+                            result
                         }
                     };
                     if node.ty.is_negated() {
@@ -409,7 +421,6 @@ impl GateGraph {
             }
             // This is safe because I fill the state on init.
             let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
-            // This is safe because I fill the state on init.
             unsafe { self.state.set_very_unsafely(idx, new_state) };
 
             #[cfg(feature = "debug_gate_names")]

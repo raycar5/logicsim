@@ -1,3 +1,4 @@
+#![feature(core_intrinsics)]
 #![feature(maybe_uninit_ref)]
 #[macro_use]
 pub mod graph;
