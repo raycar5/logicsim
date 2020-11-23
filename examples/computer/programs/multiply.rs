@@ -30,7 +30,6 @@ pub fn multiply_rom(a: u8, b: u8) -> Vec<u8> {
         LDA.with_data(counter).into(), // Loop start
         LIB.with_data(1).into(),
         SUB.into(),
-        OUT.into(),
         JZ.with_data(end).into(),
         STI.with_data(counter).into(),
         LDA.with_data(acc).into(),
