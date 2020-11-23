@@ -13,10 +13,11 @@ impl State {
 
         State { states, updated }
     }
-    pub fn reserve(&mut self, n: usize) {
-        self.states.reserve(n / 64);
-        self.updated.reserve(n / 64);
+    pub fn fill_zero(&mut self, n: usize) {
+        self.states = vec![0; n / 64];
+        self.updated = vec![0; n / 64];
     }
+
     #[inline(always)]
     fn get_from_bit_vec(v: &Vec<u64>, real_index: usize) -> bool {
         let (word_index, mask) = word_mask_64(real_index);
@@ -104,6 +105,28 @@ impl State {
             )
         };
         println!("{}", pretty_hex(&slice));
+    }
+
+    // The dark corner.
+    #[inline(always)]
+    unsafe fn get_from_bit_vec_very_unsafely(v: &Vec<u64>, real_index: usize) -> bool {
+        let (word_index, mask) = word_mask_64(real_index);
+        let word = v.get_unchecked(word_index);
+        word & mask != 0
+    }
+
+    pub unsafe fn get_state_very_unsafely(&self, index: GateIndex) -> bool {
+        Self::get_from_bit_vec_very_unsafely(&self.states, index.idx)
+    }
+    pub unsafe fn get_updated_very_unsafely(&self, index: GateIndex) -> bool {
+        Self::get_from_bit_vec_very_unsafely(&self.updated, index.idx)
+    }
+    pub unsafe fn get_if_updated_very_unsafely(&self, index: GateIndex) -> Option<bool> {
+        if self.get_updated_very_unsafely(index) {
+            Some(self.get_state_very_unsafely(index))
+        } else {
+            None
+        }
     }
 }
 

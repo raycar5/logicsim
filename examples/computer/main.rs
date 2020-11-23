@@ -156,13 +156,13 @@ fn main() {
 
     t = std::time::Instant::now();
 
-    let mut tmavg = 100;
+    let mut tmavg = 10000;
     let mut old_i8 = 0;
     let mut old_char = 0 as char;
     let mut new_i8 = old_i8;
     let mut new_char = old_char;
 
-    for i in 0..100000 {
+    for i in 0..1000000 {
         g.flip_lever_stable(clock_lever);
 
         if TEXT_OUTPUT {
@@ -172,16 +172,16 @@ fn main() {
         }
         if new_i8 != old_i8 {
             old_i8 = new_i8;
-            println!("output:{}, {}us/clock", old_i8, tmavg);
+            println!("output:{}, {}ns/clock", old_i8, tmavg);
         }
         if new_char != old_char {
             old_char = new_char;
-            println!("output:{}, {}us/clock", old_char, tmavg);
+            println!("output:{}, {}ns/clock", old_char, tmavg);
         }
         if i % 2 == 1 {
-            tmavg = (tmavg * (i - 1) + t.elapsed().as_micros()) / i;
+            tmavg = (tmavg * (i - 1) + t.elapsed().as_nanos()) / i;
             t = std::time::Instant::now();
         }
     }
-    println!("{}us/clock avg", tmavg);
+    println!("{}ns/clock avg", tmavg);
 }
