@@ -1,7 +1,7 @@
 use crate::bititer::BitIter;
 use crate::graph::*;
 
-pub fn constant<T>(c: T) -> Vec<GateIndex> {
+pub fn constant<T: Copy>(c: T) -> Vec<GateIndex> {
     let width = std::mem::size_of::<T>() * 8;
     let mut out = Vec::new();
     out.reserve(width);

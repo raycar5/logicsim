@@ -47,6 +47,7 @@ macro_rules! control_signal_set {
                 use std::mem::MaybeUninit;
                 use std::mem::transmute;
                 // I wish there was a safer way.
+                // This is safe because I initialize the memory immediately afterwards.
                 // https://stackoverflow.com/questions/36258417/using-a-macro-to-initialize-a-big-array-of-non-copy-elements
                 // https://doc.rust-lang.org/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
                 let mut signals: [MaybeUninit<wires::Wire>;$n] = unsafe { MaybeUninit::uninit().assume_init() };

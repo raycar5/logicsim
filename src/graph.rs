@@ -367,7 +367,7 @@ impl GateGraph {
         }
         init
     }
-    // Main logic.
+    // Main VERY HOT loop.
     // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
     // All unsafe invariants are checked in debug mode using debug_assert!().
     fn tick_inner(&mut self) {
