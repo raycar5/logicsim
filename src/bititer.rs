@@ -1,8 +1,13 @@
 use smallvec::SmallVec;
 // TODO Macro.
 pub fn word_mask_64(index: usize) -> (usize, u64) {
-    let word = index / 64;
-    let mask = 1 << (index % 64);
+    // This is safe because the divisor is a non zero constant.
+    // Was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
+    let word = unsafe { std::intrinsics::unchecked_div(index, 64) };
+    // This is safe because the divisor is a non zero constant and the shift can't be more than 64;
+    let mask = unsafe {
+        std::intrinsics::unchecked_shl(1u64, std::intrinsics::unchecked_rem(index, 64) as u64)
+    };
     (word, mask)
 }
 pub fn word_mask_8(index: usize) -> (usize, u8) {
