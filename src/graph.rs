@@ -2,6 +2,7 @@ use crate::bititer::BitIter;
 use crate::slab::Slab;
 use crate::state::State;
 use bitvec::vec::BitVec;
+use indexmap::IndexSet;
 use smallvec::{smallvec, SmallVec};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{self, Display, Formatter};
@@ -124,14 +125,14 @@ use GateType::*;
 struct Gate {
     ty: GateType,
     dependencies: SmallVec<[GateIndex; 4]>,
-    dependents: HashSet<usize>,
+    dependents: IndexSet<usize>,
 }
 impl Gate {
     fn new(ty: GateType, dependencies: SmallVec<[GateIndex; 4]>) -> Self {
         Gate {
             ty,
             dependencies,
-            dependents: HashSet::new(),
+            dependents: Default::default(),
         }
     }
 }
@@ -193,12 +194,12 @@ impl GateGraph {
         nodes.insert(Gate {
             ty: Off,
             dependencies: smallvec![],
-            dependents: HashSet::new(),
+            dependents: Default::default(),
         });
         nodes.insert(Gate {
             ty: On,
             dependencies: smallvec![],
-            dependents: HashSet::new(),
+            dependents: Default::default(),
         });
         GateGraph {
             nodes,
@@ -632,7 +633,7 @@ impl GateGraph {
 
         let mut work: Vec<_> = off
             .dependents
-            .drain()
+            .drain(0..off.dependents.len())
             .map(|idx| WorkItem {
                 idx,
                 on: false,
@@ -642,11 +643,15 @@ impl GateGraph {
 
         let on = self.nodes.get_mut(ON.idx).unwrap();
 
-        work.extend(on.dependents.drain().map(|idx| WorkItem {
-            idx,
-            on: true,
-            from_const: true,
-        }));
+        work.extend(
+            on.dependents
+                .drain(0..on.dependents.len())
+                .map(|idx| WorkItem {
+                    idx,
+                    on: true,
+                    from_const: true,
+                }),
+        );
 
         work.extend(self.nodes.iter().filter_map(|(idx, gate)| {
             if gate.dependencies.len() == 1 && !gate.dependencies[0].is_const() {
