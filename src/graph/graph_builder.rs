@@ -295,7 +295,6 @@ impl GateGraphBuilder {
             output_handles: output_handles.into(),
             lever_handles: lever_handles.into(),
             propagation_queue: Default::default(),
-            next_pending_updates: Default::default(),
             pending_updates: Default::default(),
             state,
         };
@@ -308,11 +307,7 @@ impl GateGraphBuilder {
             new_graph.propagation_queue.push_back(idx);
             new_graph.tick_inner();
         }
-        new_graph.pending_updates.extend(
-            new_graph
-                .next_pending_updates
-                .drain(0..new_graph.next_pending_updates.len()),
-        );
+        new_graph.pending_updates.swap();
         new_graph
     }
 

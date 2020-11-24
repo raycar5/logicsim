@@ -1,13 +1,12 @@
 use super::types::*;
-use crate::data_structures::{Immutable, State};
+use crate::data_structures::{DoubleStack, Immutable, State};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
     pub(super) nodes: Immutable<Vec<Gate>>,
-    pub(super) pending_updates: Vec<GateIndex>,
-    pub(super) next_pending_updates: Vec<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
+    pub(super) pending_updates: DoubleStack<GateIndex>,
     pub(super) propagation_queue: VecDeque<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
     pub(super) output_handles: Immutable<Vec<CircuitOutput>>,
     pub(super) lever_handles: Immutable<Vec<GateIndex>>,
@@ -80,7 +79,7 @@ impl InitializedGateGraph {
             // This is safe because in an InitializedGraph nodes.len() < state.len().
             if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
                 if old_state != new_state {
-                    self.next_pending_updates.push(idx);
+                    self.pending_updates.push(idx);
                 }
                 continue;
             }
@@ -113,7 +112,7 @@ impl InitializedGateGraph {
             self.propagation_queue.push_back(*pending);
             self.tick_inner()
         }
-        std::mem::swap(&mut self.pending_updates, &mut self.next_pending_updates);
+        self.pending_updates.swap();
     }
     pub fn run_until_stable(&mut self, max: usize) -> Result<usize, &'static str> {
         for i in 0..max {
