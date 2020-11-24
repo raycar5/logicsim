@@ -49,10 +49,6 @@ impl InitializedGateGraph {
                 // This is safe because I fill the state on init.
                 Lever => unsafe { self.state.get_state_very_unsafely(idx) },
                 Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
-                Lut(lut) => {
-                    let index = self.collect_usize_lossy(&node.dependencies);
-                    lut[index]
-                }
                 Or | Nor | And | Nand | Xor | Xnor => {
                     let mut new_state = if node.dependencies.is_empty() {
                         false
@@ -104,7 +100,7 @@ impl InitializedGateGraph {
             }
             if node.ty.is_lever() || old_state != new_state {
                 self.propagation_queue
-                    .extend(node.dependents.iter().map(|i| *i))
+                    .extend(node.dependents.iter().copied())
             }
         }
     }
@@ -194,21 +190,6 @@ impl InitializedGateGraph {
         let mut mask = 1u8;
 
         for bit in outputs.iter().take(8) {
-            if self.value(*bit) {
-                output |= mask
-            }
-
-            mask <<= 1;
-        }
-
-        output
-    }
-    fn collect_usize_lossy(&self, outputs: &[GateIndex]) -> usize {
-        let mut output = 0;
-        let mut mask = 1usize;
-        let usize_width = std::mem::size_of::<usize>() * 8;
-
-        for bit in outputs.iter().take(usize_width) {
             if self.value(*bit) {
                 output |= mask
             }

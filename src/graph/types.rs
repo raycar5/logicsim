@@ -1,5 +1,4 @@
 use super::InitializedGateGraph;
-use bitvec::vec::BitVec;
 use indexmap::IndexSet;
 use smallvec::SmallVec;
 use std::fmt::{self, Display, Formatter};
@@ -59,7 +58,6 @@ pub(super) enum GateType {
     And,
     Nand,
     Nor,
-    Lut(BitVec),
 }
 use GateType::*;
 impl GateType {
@@ -69,7 +67,7 @@ impl GateType {
             Or | Nor => acc | b,
             And | Nand => acc & b,
             Xor | Xnor => acc ^ b,
-            On | Off | Lever | Not | Lut(..) => unreachable!(),
+            On | Off | Lever | Not => unreachable!(),
         }
     }
     #[inline(always)]
@@ -78,7 +76,7 @@ impl GateType {
             Or | Nor | Xor | Xnor => false,
             And | Nand => true,
             Not => false,
-            On | Off | Lever | Lut(..) => unreachable!(),
+            On | Off | Lever => unreachable!(),
         }
     }
     #[inline(always)]
@@ -86,7 +84,7 @@ impl GateType {
         match self {
             Xor | Xnor => false,
             Or | Nor | And | Nand => true,
-            Not | On | Off | Lever | Lut(..) => unreachable!(),
+            Not | On | Off | Lever => unreachable!(),
         }
     }
     pub fn is_lever(&self) -> bool {
@@ -95,14 +93,10 @@ impl GateType {
     pub fn is_negated(&self) -> bool {
         matches!(self, Nor | Nand | Not | Xnor)
     }
-    pub fn is_not(&self) -> bool {
-        matches!(self, Not)
-    }
 }
 impl Display for GateType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Lut(lut) => write!(f, "{}", lut),
             Lever => write!(f, "Lever"),
             On => write!(f, "On"),
             Off => write!(f, "Off"),

@@ -1,8 +1,9 @@
+use super::optimizations::*;
 use super::types::*;
 use super::InitializedGateGraph;
 use crate::data_structures::{Slab, State};
 use crate::gi;
-use smallvec::{smallvec, SmallVec};
+use smallvec::smallvec;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -10,13 +11,13 @@ use GateType::*;
 
 #[derive(Debug, Clone)]
 pub struct GateGraphBuilder {
-    nodes: Slab<Gate>,
+    pub(super) nodes: Slab<Gate>,
     output_handles: Vec<CircuitOutput>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
-    #[cfg(feature = "debug_gates")]
+    #[cfg(feature = "debug_gate_names")]
     names: HashMap<GateIndex, String>,
-    #[cfg(feature = "debug_gates")]
+    #[cfg(feature = "debug_gate_names")]
     probes: HashMap<GateIndex, Probe>,
 }
 struct CompactedGateGraph {
@@ -24,9 +25,9 @@ struct CompactedGateGraph {
     output_handles: Vec<CircuitOutput>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
-    #[cfg(feature = "debug_gates")]
+    #[cfg(feature = "debug_gate_names")]
     names: HashMap<GateIndex, String>,
-    #[cfg(feature = "debug_gates")]
+    #[cfg(feature = "debug_gate_names")]
     probes: HashMap<GateIndex, Probe>,
 }
 impl GateGraphBuilder {
@@ -47,9 +48,9 @@ impl GateGraphBuilder {
             lever_handles: Default::default(),
             outputs: Default::default(),
             output_handles: Default::default(),
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             names: Default::default(),
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             probes: Default::default(),
         }
     }
@@ -61,7 +62,7 @@ impl GateGraphBuilder {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
             Lever => panic!("Lever has no dependencies"),
-            Or | Nor | And | Nand | Xor | Xnor | Not | Lut(..) => {
+            Or | Nor | And | Nand | Xor | Xnor | Not => {
                 gate.dependencies.push(new_dep);
                 self.nodes
                     .get_mut(new_dep.idx)
@@ -77,7 +78,6 @@ impl GateGraphBuilder {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
             Lever => panic!("Lever has no dependencies"),
-            Lut(..) => unimplemented!(""),
             Not => {
                 assert!(x == 0, "Not only has one dependency");
             }
@@ -111,13 +111,8 @@ impl GateGraphBuilder {
         for dep in deps {
             self.nodes.get_mut(dep.idx).unwrap().dependents.insert(idx);
         }
-        #[cfg(feature = "debug_gates")]
+        #[cfg(feature = "debug_gate_names")]
         self.names.insert(idx, name.into());
-    }
-    pub(super) fn gate<S: Into<String>>(&mut self, ty: GateType, name: S) -> GateIndex {
-        let idx = gi!(self.nodes.insert(Gate::new(ty, smallvec![])));
-        self.create_gate(idx, &[], name);
-        idx
     }
     pub fn lever<S: Into<String>>(&mut self, name: S) -> LeverHandle {
         let idx = GateIndex::new(self.nodes.insert(Gate::new(Lever, smallvec![])));
@@ -186,7 +181,7 @@ impl GateGraphBuilder {
     }
 
     fn compacted(self) -> CompactedGateGraph {
-        #[cfg(feature = "debug_gates")]
+        #[cfg(feature = "debug_gate_names")]
         let GateGraphBuilder {
             names,
             nodes,
@@ -204,9 +199,9 @@ impl GateGraphBuilder {
         if nodes.len() == nodes.total_len() {
             return CompactedGateGraph {
                 nodes: nodes.into_iter().map(|(_, gate)| gate).collect(),
-                #[cfg(feature = "debug_gates")]
+                #[cfg(feature = "debug_gate_names")]
                 names,
-                #[cfg(feature = "debug_gates")]
+                #[cfg(feature = "debug_gate_names")]
                 probes,
                 outputs,
                 lever_handles,
@@ -230,13 +225,13 @@ impl GateGraphBuilder {
             gate.dependents = gate.dependents.iter().map(|idx| index_map[idx]).collect();
         }
 
-        #[cfg(feature = "debug_gates")]
+        #[cfg(feature = "debug_gate_names")]
         let new_names = names
             .into_iter()
             .filter_map(|(idx, name)| Some((*index_map.get(&idx)?, name)))
             .collect();
 
-        #[cfg(feature = "debug_gates")]
+        #[cfg(feature = "debug_gate_names")]
         let new_probes = probes
             .into_iter()
             .map(|(idx, probe)| (index_map[&idx], probe))
@@ -260,10 +255,10 @@ impl GateGraphBuilder {
         let new_outputs = outputs.into_iter().map(|idx| index_map[&idx]).collect();
 
         CompactedGateGraph {
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             names: new_names,
             nodes: new_nodes,
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             probes: new_probes,
             outputs: new_outputs,
             output_handles: new_output_handles,
@@ -271,7 +266,7 @@ impl GateGraphBuilder {
         }
     }
     pub fn init_unoptimized(self) -> InitializedGateGraph {
-        #[cfg(feature = "debug_gates")]
+        #[cfg(feature = "debug_gate_names")]
         let IntermediateGateGraph {
             names,
             nodes,
@@ -289,10 +284,10 @@ impl GateGraphBuilder {
 
         let state = State::new(nodes.len());
         let mut new_graph = InitializedGateGraph {
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             names,
             nodes,
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             probes,
             outputs,
             output_handles,
@@ -322,7 +317,7 @@ impl GateGraphBuilder {
     // Optimizations
     fn optimize(&mut self) {
         let old_len = self.len();
-        self.const_propagation_pass();
+        const_propagation_pass(self);
         println!(
             "Optimized const propagation, old size:{}, new size:{}, reduction: {:.1}%",
             old_len,
@@ -331,7 +326,7 @@ impl GateGraphBuilder {
         );
 
         let old_len = self.len();
-        self.dead_code_elimination_pass();
+        dead_code_elimination_pass(self);
         println!(
             "Optimized dead code elimination, old size:{}, new size:{}, reduction: {:.1}%",
             old_len,
@@ -340,7 +335,7 @@ impl GateGraphBuilder {
         );
 
         let old_len = self.len();
-        self.duplicate_dependency_pass();
+        duplicate_dependency_elimination_pass(self);
         println!(
             "Optimized duplicate dependency, old size:{}, new size:{}, reduction: {:.1}%",
             old_len,
@@ -349,7 +344,7 @@ impl GateGraphBuilder {
         );
 
         let old_len = self.len();
-        self.const_propagation_pass();
+        const_propagation_pass(self);
         println!(
             "Optimized const propagation, old size:{}, new size:{}, reduction: {:.1}%",
             old_len,
@@ -357,486 +352,13 @@ impl GateGraphBuilder {
             (old_len - self.len()) as f64 / old_len as f64 * 100f64
         );
     }
-    fn find_replacement(
-        &mut self,
-        idx: GateIndex,
-        on: bool,
-        from_const: bool,
-        short_circuit: GateIndex,
-        negated: bool,
-    ) -> Option<GateIndex> {
-        let idx_usize = idx.idx;
-        let short_circuit_output = if negated {
-            short_circuit
-                .opposite_if_const()
-                .expect("short_circuit should be const")
-        } else {
-            short_circuit
-        };
-
-        if on == short_circuit.is_on() {
-            return Some(short_circuit_output);
-        }
-        let dependencies_len = self.nodes.get(idx_usize).unwrap().dependencies.len();
-        if dependencies_len == 1 {
-            if from_const {
-                return Some(short_circuit_output.opposite_if_const().unwrap());
-            }
-            if negated {
-                self.nodes.get_mut(idx_usize).unwrap().ty = Not;
-                return None;
-            }
-            return Some(self.nodes.get(idx_usize).unwrap().dependencies[0]);
-        }
-
-        let mut non_const_dependency = None;
-        for (i, dependency) in self
-            .nodes
-            .get(idx_usize)
-            .unwrap()
-            .dependencies
-            .iter()
-            .copied()
-            .enumerate()
-        {
-            if dependency == short_circuit_output {
-                return Some(short_circuit_output);
-            }
-            if !dependency.is_const() {
-                non_const_dependency = Some((dependency, i))
-            }
-        }
-        if let Some((non_const_dependency, i)) = non_const_dependency {
-            if dependencies_len == 2 {
-                if negated {
-                    let gate = self.nodes.get_mut(idx_usize).unwrap();
-                    gate.ty = Not;
-                    gate.dependencies.remove(i + 1 % 2);
-                    return None;
-                } else {
-                    return Some(non_const_dependency);
-                }
-            }
-            None
-        } else {
-            // If there are only const dependencies and none of them are short circuits
-            // the output must be the opposite of the short_circuit output.
-            Some(short_circuit_output.opposite_if_const().unwrap())
-        }
-    }
-    fn find_replacement_xor(
-        &mut self,
-        idx: GateIndex,
-        on: bool,
-        from_const: bool,
-        negated: bool,
-    ) -> Option<GateIndex> {
-        let idx_usize = idx.idx;
-        let dependencies_len = self.nodes.get(idx_usize).unwrap().dependencies.len();
-        if dependencies_len == 1 {
-            if from_const {
-                return Some(if negated ^ on { OFF } else { ON });
-            }
-            if negated ^ on {
-                self.nodes.get_mut(idx_usize).unwrap().ty = Not;
-                return None;
-            }
-            return Some(self.nodes.get(idx_usize).unwrap().dependencies[0]);
-        }
-
-        let mut non_const_dependency = None;
-        let mut output = negated;
-        for (i, dependency) in self
-            .nodes
-            .get(idx_usize)
-            .unwrap()
-            .dependencies
-            .iter()
-            .copied()
-            .enumerate()
-        {
-            if dependency.is_const() {
-                output ^= dependency.is_on()
-            } else {
-                non_const_dependency = Some((dependency, i))
-            }
-        }
-        if let Some((non_const_dependency, i)) = non_const_dependency {
-            if dependencies_len == 2 {
-                if negated ^ on {
-                    let gate = self.nodes.get_mut(idx_usize).unwrap();
-                    gate.ty = Not;
-                    gate.dependencies.remove(i + 1 % 2);
-                    return None;
-                } else {
-                    return Some(non_const_dependency);
-                }
-            }
-            return None;
-        }
-        Some(if output { ON } else { OFF })
-    }
-
-    // Traverses the graph forwards from constants and nodes with a single input,
-    // replacing them with simpler subgraphs.
-    fn const_propagation_pass(&mut self) {
-        // Allocated outside main loop.
-        let mut temp_dependents = Vec::new();
-        let mut temp_dependencies = Vec::new();
-
-        struct WorkItem {
-            idx: GateIndex,
-            on: bool,
-            from_const: bool,
-        }
-
-        // Propagate constants.
-        let off = self.nodes.get_mut(OFF.idx).unwrap();
-
-        let mut work: Vec<_> = off
-            .dependents
-            .drain(0..off.dependents.len())
-            .map(|idx| WorkItem {
-                idx: idx,
-                on: false,
-                from_const: true,
-            })
-            .collect();
-
-        let on = self.nodes.get_mut(ON.idx).unwrap();
-
-        work.extend(
-            on.dependents
-                .drain(0..on.dependents.len())
-                .map(|idx| WorkItem {
-                    idx,
-                    on: true,
-                    from_const: true,
-                }),
-        );
-
-        work.extend(self.nodes.iter().filter_map(|(idx, gate)| {
-            if gate.dependencies.len() == 1 && !gate.dependencies[0].is_const() {
-                return Some(WorkItem {
-                    idx: gi!(idx),
-                    on: gate.ty.init(),
-                    from_const: false,
-                });
-            }
-            None
-        }));
-
-        // Seems like a reasonable heuristic.
-        temp_dependents.reserve(work.len() / 2);
-        temp_dependencies.reserve(work.len() / 2);
-
-        while let Some(WorkItem {
-            idx,
-            on,
-            from_const,
-        }) = work.pop()
-        {
-            // Don't optimize out observable things.
-            if self.is_observable(idx) {
-                continue;
-            }
-            if self.nodes.get(idx.idx).is_none() {
-                continue;
-            }
-
-            let gate_type = &self.nodes.get(idx.idx).unwrap().ty;
-            let replacement = match gate_type {
-                Off | On | Lever => unreachable!("Off, On, and lever nodes have no dependencies"),
-                Lut(..) => None,
-                Not => {
-                    if from_const {
-                        Some(if on { OFF } else { ON })
-                    } else {
-                        None
-                    }
-                }
-                And => self.find_replacement(idx, on, from_const, OFF, false),
-                Nand => self.find_replacement(idx, on, from_const, OFF, true),
-                Or => self.find_replacement(idx, on, from_const, ON, false),
-                Nor => self.find_replacement(idx, on, from_const, ON, true),
-                Xor => self.find_replacement_xor(idx, on, from_const, false),
-                Xnor => self.find_replacement_xor(idx, on, from_const, true),
-            };
-            if let Some(replacement) = replacement {
-                temp_dependents.extend(self.nodes.get(idx.idx).unwrap().dependents.iter());
-                temp_dependencies.extend(
-                    self.nodes
-                        .get(idx.idx)
-                        .unwrap()
-                        .dependencies
-                        .iter()
-                        .copied(),
-                );
-
-                for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
-                    let dependency_dependents =
-                        &mut self.nodes.get_mut(dependency.idx).unwrap().dependents;
-                    dependency_dependents.remove(&idx);
-                }
-
-                if replacement.is_const() {
-                    work.extend(temp_dependents.iter().copied().map(|idx| WorkItem {
-                        idx,
-                        on: replacement.is_on(),
-                        from_const: true,
-                    }))
-                }
-
-                for dependent in temp_dependents.drain(0..temp_dependents.len()) {
-                    // A gate can have the same dependency many times in different dependency indexes.
-                    let positions = self
-                        .nodes
-                        .get(dependent.idx)
-                        .unwrap()
-                        .dependencies
-                        .iter()
-                        .enumerate()
-                        .fold(
-                            SmallVec::<[usize; 2]>::new(),
-                            |mut acc, (position, index)| {
-                                if *index == idx {
-                                    acc.push(position)
-                                }
-                                acc
-                            },
-                        );
-                    for position in positions {
-                        self.nodes.get_mut(dependent.idx).unwrap().dependencies[position] =
-                            replacement
-                    }
-                    self.nodes
-                        .get_mut(replacement.idx)
-                        .unwrap()
-                        .dependents
-                        .insert(dependent);
-                }
-
-                self.nodes.remove(idx.idx);
-            }
-        }
-    }
-    // Traverses the graph backwards removing all nodes with no dependents.
-    fn dead_code_elimination_pass(&mut self) {
-        let mut temp_dependencies = Vec::new();
-
-        let mut work: Vec<_> = self
-            .nodes
-            .iter()
-            .filter_map(|(idx, gate)| {
-                let idx = gi!(idx);
-                if !idx.is_const() && gate.dependents.is_empty() {
-                    return Some(idx);
-                }
-                None
-            })
-            .collect();
-        temp_dependencies.reserve(work.len());
-
-        while let Some(idx) = work.pop() {
-            // Don't optimize out observable things.
-            if self.is_observable(idx) {
-                continue;
-            }
-            temp_dependencies.extend(
-                self.nodes
-                    .get(idx.idx)
-                    .unwrap()
-                    .dependencies
-                    .iter()
-                    .copied(),
-            );
-
-            for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
-                let dependency_gate = self.nodes.get_mut(dependency.idx).unwrap();
-                dependency_gate.dependents.remove(&idx);
-                if dependency_gate.dependents.is_empty() {
-                    work.push(dependency)
-                }
-            }
-            self.nodes.remove(idx.idx);
-        }
-    }
-    // Removes duplicate dependencies from most gates
-    // If the gate is an Xor or Xnor it keeps 1 if there is an odd number of copiesa.
-    // or 2 if there is an even number of copies.
-    fn duplicate_dependency_pass(&mut self) {
-        struct WorkItem {
-            idx: GateIndex,
-            duplicates: SmallVec<[(GateIndex, usize); 2]>,
-        }
-
-        let mut work: Vec<WorkItem> = self
-            .nodes
-            .iter()
-            .filter_map(|(idx, gate)| {
-                let mut dependency_multi_map = HashMap::<GateIndex, usize>::new();
-                // Detect duplicate dependencies and how many times they are duplicated.
-                for dependency in gate.dependencies.iter().copied() {
-                    let entry = dependency_multi_map.entry(dependency).or_default();
-                    *entry += 1
-                }
-
-                let idx = gi!(idx);
-                let duplicates: SmallVec<_> = dependency_multi_map
-                    .into_iter()
-                    .filter(|(_, count)| *count > 1)
-                    .collect();
-                if duplicates.is_empty() {
-                    None
-                } else {
-                    Some(WorkItem { idx, duplicates })
-                }
-            })
-            .collect();
-
-        enum Action {
-            Keep1,
-            Keep2,
-        }
-        while let Some(WorkItem { idx, duplicates }) = work.pop() {
-            // Don't optimize out observable things.
-            let gate_dependencies = &mut self.nodes.get_mut(idx.idx).unwrap().dependencies;
-            gate_dependencies.sort();
-            gate_dependencies.dedup();
-            for (duplicate, count) in duplicates {
-                let gate_type = &self.nodes.get(idx.idx).unwrap().ty;
-                let action = match gate_type {
-                    Off | On | Lever => {
-                        unreachable!("Off, On, and lever nodes have no dependencies")
-                    }
-                    Lut(..) => unreachable!("Rom pass should be after duplicate pass"),
-                    Not => unreachable!("Not gates only have 1 dependency"),
-
-                    And | Nand | Or | Nor => Action::Keep1,
-                    Xor | Xnor => {
-                        if count % 2 == 0 {
-                            Action::Keep2
-                        } else {
-                            Action::Keep1
-                        }
-                    }
-                };
-                if let Action::Keep2 = action {
-                    self.nodes
-                        .get_mut(idx.idx)
-                        .unwrap()
-                        .dependencies
-                        .push(duplicate)
-                }
-            }
-        }
-    }
-    // Traverses the graph backwards from nodes with no dependants removing absorbing dependencies
-    // and replacing them with a look up table.
-    // It's not that easy... WIP, doing research
-    /*
-    fn lut_replacement_pass(&mut self) {
-        let mut temp_dependencies = Vec::new();
-
-        let mut work: Vec<_> = self
-            .nodes
-            .iter()
-            .filter_map(|(idx, gate)| {
-                let idx = gi!(idx);
-                if !idx.is_const() && gate.dependents.is_empty() {
-                    return Some(idx);
-                }
-                None
-            })
-            .collect();
-        temp_dependencies.reserve(work.len());
-
-        'workloop: while let Some(idx) = work.pop() {
-            temp_dependencies.clear();
-            temp_dependencies.extend(
-                self.nodes
-                    .get(idx.idx)
-                    .unwrap()
-                    .dependencies
-                    .iter()
-                    .copied(),
-            );
-            let ty = self.nodes.get(idx.idx).unwrap().ty.clone();
-            let mut new_dependencies = SmallVec::<[GateIndex; GATE_TINYVEC_SIZE]>::new();
-            let mut lut: BitVec = BitVec::new();
-
-            let subgraph = &mut GateGraphBuilder::new();
-            let subgraph_root_idx = subgraph.gate(ty, "subgraph");
-            let subgraph_output = subgraph.output1(subgraph_root_idx, "subgraph-out");
-            let mut subgraph_levers = Vec::<GateIndex>::new();
-
-            'dependency_loop: for dependency in temp_dependencies.iter() {
-                if *dependency == idx {
-                    continue 'workloop;
-                }
-                let dependency_gate = self.nodes.get(dependency.idx).unwrap();
-                if dependency_gate.ty.is_lever()
-                    || new_dependencies.len() + dependency_gate.dependencies.len() > 4
-                {
-                    let lever = subgraph.lever("subgraph");
-                    subgraph.dpush(subgraph_root_idx, lever);
-                    subgraph_levers.push(lever);
-                    if subgraph_levers.len() > std::mem::size_of::<usize>() * 8 {
-                        continue 'workloop;
-                    }
-                    new_dependencies.push(*dependency);
-                    continue 'dependency_loop;
-                }
-                new_dependencies.extend(dependency_gate.dependencies.iter().copied());
-
-                let dependency_ty = dependency_gate.ty.clone();
-                let dep_subgraph_idx = subgraph.gate(dependency_ty, "subgraph-deps");
-                subgraph.dpush(subgraph_root_idx, dep_subgraph_idx);
-
-                for _ in 0..dependency_gate.dependencies.len() {
-                    let lever = subgraph.lever("subgraph");
-                    subgraph.dpush(dep_subgraph_idx, lever);
-                    subgraph_levers.push(lever);
-                }
-            }
-            let lut_width = 1 << subgraph_levers.len();
-            lut.reserve(lut_width);
-            subgraph.init_unoptimized();
-
-            println!("HI{}", lut_width);
-            for i in 0..lut_width {
-                subgraph.update_levers(&subgraph_levers, BitIter::new(i));
-                subgraph.run_until_stable(10).unwrap();
-                lut.push(subgraph_output.b0(subgraph));
-            }
-            println!("ho");
-            for dependency in &temp_dependencies {
-                self.nodes
-                    .get_mut(dependency.idx)
-                    .unwrap()
-                    .dependents
-                    .remove(&idx.idx);
-            }
-            for dependency in &new_dependencies {
-                self.nodes
-                    .get_mut(dependency.idx)
-                    .unwrap()
-                    .dependents
-                    .insert(idx.idx);
-            }
-            let gate = self.nodes.get_mut(idx.idx).unwrap();
-            gate.dependencies = new_dependencies;
-            gate.ty = GateType::Lut(lut);
-        }
-    }
-    */
 
     // Output operations.
-    fn is_observable(&self, gate: GateIndex) -> bool {
+    pub(super) fn is_observable(&self, gate: GateIndex) -> bool {
         if self.outputs.contains(&gate) {
             return true;
         }
-        #[cfg(feature = "debug_gates")]
+        #[cfg(feature = "debug_gate_names")]
         if self.probes.contains_key(&gate) {
             return true;
         }
@@ -870,20 +392,20 @@ impl GateGraphBuilder {
         let mut index = HashMap::new();
         for (i, node) in self.nodes.iter() {
             let is_out = self.outputs.contains(&gi!(i));
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             let name = self
                 .names
                 .get(&gi!(i))
                 .map(|name| format!(":{}", name))
                 .unwrap_or("".to_string());
 
-            #[cfg(not(feature = "debug_gates"))]
+            #[cfg(not(feature = "debug_gate_names"))]
             let label = if is_out {
                 format!("output:{}", node.ty)
             } else {
                 node.ty.to_string()
             };
-            #[cfg(feature = "debug_gates")]
+            #[cfg(feature = "debug_gate_names")]
             let label = if is_out {
                 format!("O:{}{}", node.ty, name)
             } else {
@@ -902,7 +424,7 @@ impl GateGraphBuilder {
     }
 
     // Debug operations.
-    #[cfg(feature = "debug_gates")]
+    #[cfg(feature = "debug_gate_names")]
     pub fn probe<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) {
         let name = name.into();
         for bit in bits {
@@ -915,7 +437,7 @@ impl GateGraphBuilder {
             );
         }
     }
-    #[cfg(feature = "debug_gates")]
+    #[cfg(feature = "debug_gate_names")]
     pub fn probe1<S: Into<String>>(&mut self, bit: GateIndex, name: S) {
         self.probe(&[bit], name)
     }
