@@ -37,6 +37,12 @@ impl<T> DoubleStack<T> {
         self.len() == 0
     }
 }
+impl<T: Copy> DoubleStack<T> {
+    #[inline(always)]
+    pub fn extend_from_slice(&mut self, v: &[T]) {
+        self.write_stack.extend_from_slice(&v)
+    }
+}
 
 impl<T> Default for DoubleStack<T> {
     fn default() -> Self {

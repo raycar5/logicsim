@@ -3,6 +3,7 @@ use super::types::*;
 use super::InitializedGateGraph;
 use crate::data_structures::{Slab, State};
 use crate::gi;
+use indexmap::IndexSet;
 use smallvec::smallvec;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -11,7 +12,7 @@ use GateType::*;
 
 #[derive(Debug, Clone)]
 pub struct GateGraphBuilder {
-    pub(super) nodes: Slab<Gate>,
+    pub(super) nodes: Slab<Gate<IndexSet<GateIndex>>>,
     output_handles: Vec<CircuitOutput>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
@@ -21,7 +22,7 @@ pub struct GateGraphBuilder {
     probes: HashMap<GateIndex, Probe>,
 }
 struct CompactedGateGraph {
-    nodes: Vec<Gate>,
+    nodes: Vec<InitializedGate>,
     output_handles: Vec<CircuitOutput>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
@@ -199,7 +200,7 @@ impl GateGraphBuilder {
         } = self;
         if nodes.len() == nodes.total_len() {
             return CompactedGateGraph {
-                nodes: nodes.into_iter().map(|(_, gate)| gate).collect(),
+                nodes: nodes.into_iter().map(|(_, gate)| gate.into()).collect(),
                 #[cfg(feature = "debug_gates")]
                 names,
                 #[cfg(feature = "debug_gates")]
@@ -211,13 +212,14 @@ impl GateGraphBuilder {
         }
 
         let mut index_map = HashMap::new();
-        let mut new_nodes = Vec::new();
+        let mut new_nodes = Vec::<InitializedGate>::new();
         index_map.reserve(nodes.len());
         new_nodes.reserve(nodes.len());
 
         for (new_index, (old_index, gate)) in nodes.into_iter().enumerate() {
             index_map.insert(gi!(old_index), gi!(new_index));
-            new_nodes.push(gate);
+
+            new_nodes.push(gate.into());
         }
         for gate in &mut new_nodes {
             for dependency in &mut gate.dependencies {

@@ -207,8 +207,8 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
             Xnor => find_replacement_xor(g, idx, on, from_const, true),
         };
         if let Some(replacement) = replacement {
-            temp_dependents.extend(g.nodes.get(idx.idx).unwrap().dependents.iter());
-            temp_dependencies.extend(g.nodes.get(idx.idx).unwrap().dependencies.iter().copied());
+            temp_dependents.extend(&g.nodes.get(idx.idx).unwrap().dependents);
+            temp_dependencies.extend_from_slice(&g.nodes.get(idx.idx).unwrap().dependencies);
 
             for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
                 let dependency_dependents =

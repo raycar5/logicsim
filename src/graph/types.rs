@@ -112,13 +112,14 @@ impl Display for GateType {
 }
 
 pub(super) const GATE_TINYVEC_SIZE: usize = 2;
+
 #[derive(Debug, Clone)]
-pub(super) struct Gate {
+pub(super) struct Gate<T> {
     pub ty: GateType,
     pub dependencies: SmallVec<[GateIndex; GATE_TINYVEC_SIZE]>,
-    pub dependents: IndexSet<GateIndex>,
+    pub dependents: T,
 }
-impl Gate {
+impl<T: Default> Gate<T> {
     pub fn new(ty: GateType, dependencies: SmallVec<[GateIndex; GATE_TINYVEC_SIZE]>) -> Self {
         Gate {
             ty,
@@ -127,6 +128,23 @@ impl Gate {
         }
     }
 }
+pub(super) type BuildGate = Gate<IndexSet<GateIndex>>;
+pub(super) type InitializedGate = Gate<SmallVec<[GateIndex; 2]>>;
+impl From<BuildGate> for InitializedGate {
+    fn from(g: BuildGate) -> Self {
+        let BuildGate {
+            ty,
+            dependents,
+            dependencies,
+        } = g;
+        Self {
+            ty,
+            dependencies,
+            dependents: dependents.into_iter().collect(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[cfg(feature = "debug_gates")]
 pub(super) struct Probe {
