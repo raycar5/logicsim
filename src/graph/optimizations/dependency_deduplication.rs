@@ -6,7 +6,7 @@ use GateType::*;
 // Removes duplicate dependencies from most gates
 // If the gate is an Xor or Xnor it keeps 1 if there is an odd number of copies
 // or 2 if there is an even number of copies.
-pub fn duplicate_dependency_elimination_pass(g: &mut GateGraphBuilder) {
+pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
     struct WorkItem {
         idx: GateIndex,
         duplicates: SmallVec<[(GateIndex, usize); 2]>,

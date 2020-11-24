@@ -313,52 +313,23 @@ impl GateGraphBuilder {
         new_graph
     }
 
-    // Optimizations
+    fn run_optimization<F: Fn(&mut GateGraphBuilder)>(&mut self, f: F, name: &'static str) {
+        let old_len = self.len();
+        f(self);
+        println!(
+            "Optimization: {}, old size:{}, new size:{}, reduction: {:.1}%",
+            name,
+            old_len,
+            self.len(),
+            (old_len - self.len()) as f64 / old_len as f64 * 100f64
+        );
+    }
     fn optimize(&mut self) {
-        let old_len = self.len();
-        const_propagation_pass(self);
-        println!(
-            "Optimized const propagation, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
-
-        let old_len = self.len();
-        dead_code_elimination_pass(self);
-        println!(
-            "Optimized dead code elimination, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
-
-        let old_len = self.len();
-        not_deduplication_pass(self);
-        println!(
-            "Optimized not deduplication, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
-
-        let old_len = self.len();
-        duplicate_dependency_elimination_pass(self);
-        println!(
-            "Optimized duplicate dependency, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
-
-        let old_len = self.len();
-        const_propagation_pass(self);
-        println!(
-            "Optimized const propagation, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
+        self.run_optimization(const_propagation_pass, "const propagation");
+        self.run_optimization(dead_code_elimination_pass, "dead code elimination");
+        self.run_optimization(not_deduplication_pass, "not deduplication");
+        self.run_optimization(dependency_deduplication_pass, "dependency deduplication");
+        self.run_optimization(const_propagation_pass, "const propagation");
     }
 
     // Output operations.
