@@ -53,9 +53,11 @@ mod tests {
         assert_eq!(out.u8(g), 1);
 
         c.set_bit(g, 0);
+        g.assert_propagation(1);
         assert_eq!(out.u8(g), 2);
 
         c.set_bit(g, 1);
+        g.assert_propagation(1);
         assert_eq!(out.u8(g), 8);
     }
 }

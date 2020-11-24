@@ -146,18 +146,17 @@ mod tests {
         let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
-        g.set_lever(read);
+        g.set_lever_stable(read);
 
         assert_eq!(output.u8(g), 255);
 
         g.set_lever(write);
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
         g.reset_lever(write);
-        g.assert_propagation(1);
+        g.assert_propagation(2);
         assert_eq!(output.u8(g), val);
 
-        g.pulse_lever(clock);
-        g.run_until_stable(2).unwrap();
+        g.pulse_lever_stable(clock);
         assert_eq!(output.u8(g), val + 1);
     }
     #[test]
@@ -189,17 +188,15 @@ mod tests {
 
         g.set_lever(read);
 
-        assert_eq!(output.u8(g), 255);
+        assert_eq!(output.u8(g), 0);
 
         for i in 0..10 {
-            g.set_lever(clock);
-            g.reset_lever(clock);
-            g.assert_propagation_range(0..2);
+            g.pulse_lever_stable(clock);
             assert_eq!(output.u8(g), i);
         }
 
         g.set_lever(reset);
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
 
         g.assert_propagation(0);
         assert_eq!(output.u8(g), 0);

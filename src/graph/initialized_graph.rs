@@ -1,13 +1,13 @@
 use super::types::*;
 use crate::data_structures::{DoubleStack, Immutable, State};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
     pub(super) nodes: Immutable<Vec<Gate>>,
     pub(super) pending_updates: DoubleStack<GateIndex>,
-    pub(super) propagation_queue: VecDeque<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
+    pub(super) propagation_queue: DoubleStack<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
     pub(super) output_handles: Immutable<Vec<CircuitOutput>>,
     pub(super) lever_handles: Immutable<Vec<GateIndex>>,
     pub(super) outputs: Immutable<HashSet<GateIndex>>,
@@ -40,76 +40,80 @@ impl InitializedGateGraph {
     pub(super) fn tick_inner(&mut self) {
         // Check the State unsafe invariant once instead of on every call.
         debug_assert!(self.nodes.get().len() < self.state.len());
-        while let Some(idx) = self.propagation_queue.pop_front() {
-            // This is safe because the propagation queue gets filled by items coming from
-            // nodes.iter() or levers, both of which are always in bounds.
-            debug_assert!(idx.idx < self.nodes.get().len());
-            let node = unsafe { self.nodes.get().get_unchecked(idx.idx) };
+        while !self.propagation_queue.is_empty() {
+            self.propagation_queue.swap();
+            while let Some(idx) = self.propagation_queue.pop() {
+                // This is safe because the propagation queue gets filled by items coming from
+                // nodes.iter() or levers, both of which are always in bounds.
+                debug_assert!(idx.idx < self.nodes.get().len());
+                let node = unsafe { self.nodes.get().get_unchecked(idx.idx) };
 
-            let new_state = match &node.ty {
-                On => true,
-                Off => false,
+                let new_state = match &node.ty {
+                    On => true,
+                    Off => false,
+                    // This is safe because in an InitializedGraph nodes.len() < state.len().
+                    Lever => unsafe { self.state.get_state_very_unsafely(idx) },
+                    Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
+                    Or | Nor | And | Nand | Xor | Xnor => {
+                        let mut new_state = if node.dependencies.is_empty() {
+                            false
+                        } else if node.ty.short_circuits() {
+                            self.fold_short(&node.ty, &node.dependencies)
+                        } else {
+                            let mut result = node.ty.init();
+
+                            // Using a manual loop results in 2% less instructions.
+                            #[allow(clippy::needless_range_loop)]
+                            for i in 0..node.dependencies.len() {
+                                // This is safe because in an InitializedGraph nodes.len() < state.len().
+                                let state = unsafe {
+                                    self.state.get_state_very_unsafely(node.dependencies[i])
+                                };
+                                result = node.ty.accumulate(result, state);
+                            }
+                            result
+                        };
+                        if node.ty.is_negated() {
+                            new_state = !new_state;
+                        }
+                        new_state
+                    }
+                };
                 // This is safe because in an InitializedGraph nodes.len() < state.len().
-                Lever => unsafe { self.state.get_state_very_unsafely(idx) },
-                Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
-                Or | Nor | And | Nand | Xor | Xnor => {
-                    let mut new_state = if node.dependencies.is_empty() {
-                        false
-                    } else if node.ty.short_circuits() {
-                        self.fold_short(&node.ty, &node.dependencies)
-                    } else {
-                        let mut result = node.ty.init();
-
-                        // Using a manual loop results in 2% less instructions.
-                        #[allow(clippy::needless_range_loop)]
-                        for i in 0..node.dependencies.len() {
-                            // This is safe because in an InitializedGraph nodes.len() < state.len().
-                            let state =
-                                unsafe { self.state.get_state_very_unsafely(node.dependencies[i]) };
-                            result = node.ty.accumulate(result, state);
-                        }
-                        result
-                    };
-                    if node.ty.is_negated() {
-                        new_state = !new_state;
+                if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
+                    if old_state != new_state {
+                        self.pending_updates.push(idx);
                     }
-                    new_state
+                    continue;
                 }
-            };
-            // This is safe because in an InitializedGraph nodes.len() < state.len().
-            if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
+                // This is safe because in an InitializedGraph nodes.len() < state.len().
+                let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
+                unsafe { self.state.set_very_unsafely(idx, new_state) };
+
+                #[cfg(feature = "debug_gates")]
                 if old_state != new_state {
-                    self.pending_updates.push(idx);
-                }
-                continue;
-            }
-            // This is safe because in an InitializedGraph nodes.len() < state.len().
-            let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
-            unsafe { self.state.set_very_unsafely(idx, new_state) };
-
-            #[cfg(feature = "debug_gates")]
-            if old_state != new_state {
-                if let Some(probe) = self.probes.get().get(&idx) {
-                    match probe.bits.len() {
-                        0 => {}
-                        1 => println!("{}:{}", probe.name, new_state),
-                        2..=8 => {
-                            println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
+                    if let Some(probe) = self.probes.get().get(&idx) {
+                        match probe.bits.len() {
+                            0 => {}
+                            1 => println!("{}:{}", probe.name, new_state),
+                            2..=8 => {
+                                println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
+                            }
+                            _ => unimplemented!(),
                         }
-                        _ => unimplemented!(),
                     }
                 }
-            }
-            if node.ty.is_lever() || old_state != new_state {
-                self.propagation_queue
-                    .extend(node.dependents.iter().copied())
+                if node.ty.is_lever() || old_state != new_state {
+                    self.propagation_queue
+                        .extend(node.dependents.iter().copied())
+                }
             }
         }
     }
     pub fn tick(&mut self) {
         while let Some(pending) = &self.pending_updates.pop() {
             self.state.tick();
-            self.propagation_queue.push_back(*pending);
+            self.propagation_queue.push(*pending);
             self.tick_inner()
         }
         self.pending_updates.swap();

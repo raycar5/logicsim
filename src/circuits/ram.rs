@@ -69,7 +69,7 @@ mod tests {
         assert_eq!(out.u8(g), 0);
 
         g.set_lever(read);
-        assert_eq!(out.u8(g), 255);
+        assert_eq!(out.u8(g), 0);
 
         g.set_lever(reset);
         g.pulse_lever(clock);

@@ -63,7 +63,7 @@ mod tests {
         g.pulse_lever(clock);
         assert_eq!(out.b0(g), false);
 
-        g.set_lever(read);
+        g.set_lever_stable(read);
         assert_eq!(out.b0(g), true);
 
         g.reset_lever(d);
@@ -71,7 +71,7 @@ mod tests {
         g.reset_lever(write);
         assert_eq!(out.b0(g), false);
 
-        g.set_lever(read);
+        g.set_lever_stable(read);
         assert_eq!(out.b0(g), true);
 
         g.set_lever(write);

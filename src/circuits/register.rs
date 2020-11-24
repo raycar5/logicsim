@@ -69,26 +69,27 @@ mod tests {
 
         assert_eq!(out.u8(g), 0);
 
-        g.set_lever(clock);
+        g.set_lever_stable(clock);
         assert_eq!(out.u8(g), 0);
 
-        g.reset_lever(clock);
-        g.set_lever(read);
+        g.reset_lever_stable(clock);
+        g.set_lever_stable(read);
         assert_eq!(out.u8(g), value);
 
-        g.reset_lever(read);
+        g.reset_lever_stable(read);
         assert_eq!(out.u8(g), 0);
 
-        g.set_lever(read);
+        g.set_lever_stable(read);
         assert_eq!(out.u8(g), value);
 
         input.set(g, value ^ value);
+        g.assert_propagation(1);
         assert_eq!(out.u8(g), value);
 
-        g.set_lever(write);
+        g.set_lever_stable(write);
         assert_eq!(out.u8(g), value);
 
-        g.set_lever(clock);
+        g.set_lever_stable(clock);
         assert_eq!(out.u8(g), value ^ value);
 
         g.reset_lever(clock);

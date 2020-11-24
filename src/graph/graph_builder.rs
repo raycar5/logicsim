@@ -304,7 +304,7 @@ impl GateGraphBuilder {
             if idx != OFF && idx != ON && new_graph.state.get_updated(idx) {
                 continue;
             }
-            new_graph.propagation_queue.push_back(idx);
+            new_graph.propagation_queue.push(idx);
             new_graph.tick_inner();
         }
         new_graph.pending_updates.swap();
