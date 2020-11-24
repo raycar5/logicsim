@@ -43,7 +43,7 @@ macro_rules! control_signal_set {
 
         #[allow(dead_code)]
         impl $name {
-            pub fn new(g:&mut wires::GateGraph) -> Self {
+            pub fn new(g:&mut wires::GateGraphBuilder) -> Self {
                 use std::mem::MaybeUninit;
                 use std::mem::transmute;
                 // I wish there was a safer way.
@@ -62,7 +62,7 @@ macro_rules! control_signal_set {
             pub fn len() -> usize {
                 $n
             }
-            pub fn connect(&mut self, g: &mut wires::GateGraph, input: &[wires::GateIndex; $n]) {
+            pub fn connect(&mut self, g: &mut wires::GateGraphBuilder, input: &[wires::GateIndex; $n]) {
                 for (signal, input) in self.signals.iter_mut().zip(input) {
                     signal.connect(g, *input)
                 }

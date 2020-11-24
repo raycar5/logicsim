@@ -183,7 +183,7 @@ fn microinstructions_from_instruction(
 }
 
 pub fn setup_control_logic(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     rega_zero: GateIndex,
     mut bus: Bus,
     clock: GateIndex,

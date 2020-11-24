@@ -5,7 +5,7 @@ fn mkname(name: String) -> String {
 }
 
 pub fn adder<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     mut cin: GateIndex,
     input1: &[GateIndex],
     input2: &[GateIndex],

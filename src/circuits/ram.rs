@@ -8,7 +8,7 @@ fn mkname(name: String) -> String {
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
 pub fn ram<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     read: GateIndex,
     write: GateIndex,
     clock: GateIndex,
@@ -41,7 +41,8 @@ mod tests {
 
     #[test]
     fn test_ram_reset() {
-        let mut g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let read = g.lever("read");
         let write = g.lever("write");
@@ -52,17 +53,17 @@ mod tests {
 
         let output = ram(
             g,
-            read,
-            write,
-            clock,
-            reset,
-            address.bits(),
-            input.bits(),
+            read.bit(),
+            write.bit(),
+            clock.bit(),
+            reset.bit(),
+            &address.bits(),
+            &input.bits(),
             "ram",
         );
         let out = g.output(&output, "out");
 
-        g.init();
+        let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
         assert_eq!(out.u8(g), 0);
@@ -74,14 +75,15 @@ mod tests {
         g.pulse_lever(clock);
         g.reset_lever(reset);
         for a in 0..(1 << address.len()) - 1 {
-            address.set(&mut g, a);
+            address.set(g, a);
             assert_eq!(out.u8(g), 0);
         }
     }
 
     #[test]
     fn test_ram_write_read() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let read = g.lever("read");
         let write = g.lever("write");
@@ -92,17 +94,17 @@ mod tests {
 
         let output = ram(
             g,
-            read,
-            write,
-            clock,
-            reset,
-            address.bits(),
-            input.bits(),
+            read.bit(),
+            write.bit(),
+            clock.bit(),
+            reset.bit(),
+            &address.bits(),
+            &input.bits(),
             "ram",
         );
         let out = g.output(&output, "out");
 
-        g.init();
+        let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
         g.set_lever(reset);

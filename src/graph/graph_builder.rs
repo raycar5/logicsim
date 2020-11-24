@@ -1,194 +1,36 @@
-use crate::bititer::BitIter;
-use crate::slab::Slab;
-use crate::state::State;
-use bitvec::vec::BitVec;
-use indexmap::IndexSet;
+use super::types::*;
+use super::InitializedGateGraph;
+use crate::data_structures::{Slab, State};
+use crate::gi;
 use smallvec::{smallvec, SmallVec};
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::fmt::{self, Display, Formatter};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Ord, PartialOrd)]
-pub struct GateIndex {
-    pub idx: usize,
-}
-impl Display for GateIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.idx)
-    }
-}
-macro_rules! gi {
-    ( $x:expr ) => {{
-        GateIndex::new($x)
-    }};
-}
-pub const OFF: GateIndex = gi!(0);
-pub const ON: GateIndex = gi!(1);
-
-impl GateIndex {
-    pub const fn new(idx: usize) -> GateIndex {
-        GateIndex { idx }
-    }
-    pub fn is_off(&self) -> bool {
-        *self == OFF
-    }
-    pub fn is_on(&self) -> bool {
-        *self == ON
-    }
-    #[inline(always)]
-    pub fn is_const(&self) -> bool {
-        *self == OFF || *self == ON
-    }
-    pub fn opposite_if_const(&self) -> Option<GateIndex> {
-        if self.is_on() {
-            Some(OFF)
-        } else if self.is_off() {
-            Some(ON)
-        } else {
-            None
-        }
-    }
-}
-#[derive(Clone, Debug)]
-pub enum GateType {
-    Off,
-    On,
-    Lever,
-    Xor,
-    Xnor,
-    Not,
-    Or,
-    And,
-    Nand,
-    Nor,
-    Lut(BitVec),
-}
-impl GateType {
-    #[inline(always)]
-    fn accumulate(&self, acc: bool, b: bool) -> bool {
-        match self {
-            Or | Nor => acc | b,
-            And | Nand => acc & b,
-            Xor | Xnor => acc ^ b,
-            On | Off | Lever | Not | Lut(..) => unreachable!(),
-        }
-    }
-    #[inline(always)]
-    fn init(&self) -> bool {
-        match self {
-            Or | Nor | Xor | Xnor => false,
-            And | Nand => true,
-            Not => false,
-            On | Off | Lever | Lut(..) => unreachable!(),
-        }
-    }
-    #[inline(always)]
-    fn short_circuits(&self) -> bool {
-        match self {
-            Xor | Xnor => false,
-            Or | Nor | And | Nand => true,
-            Not | On | Off | Lever | Lut(..) => unreachable!(),
-        }
-    }
-    fn is_lever(&self) -> bool {
-        matches!(self, Lever)
-    }
-    fn is_negated(&self) -> bool {
-        matches!(self, Nor | Nand | Not | Xnor)
-    }
-    fn is_not(&self) -> bool {
-        matches!(self, Not)
-    }
-}
-impl Display for GateType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Lut(lut) => write!(f, "{}", lut),
-            Lever => write!(f, "Lever"),
-            On => write!(f, "On"),
-            Off => write!(f, "Off"),
-            Not => write!(f, "Not"),
-            Or => write!(f, "Or"),
-            Nor => write!(f, "Nor"),
-            And => write!(f, "And"),
-            Nand => write!(f, "Nand"),
-            Xor => write!(f, "Xor"),
-            Xnor => write!(f, "Xnor"),
-        }
-    }
-}
 use GateType::*;
 
-const GATE_TINYVEC_SIZE: usize = 2;
-#[derive(Clone)]
-struct Gate {
-    ty: GateType,
-    dependencies: SmallVec<[GateIndex; GATE_TINYVEC_SIZE]>,
-    dependents: IndexSet<usize>,
-}
-impl Gate {
-    fn new(ty: GateType, dependencies: SmallVec<[GateIndex; GATE_TINYVEC_SIZE]>) -> Self {
-        Gate {
-            ty,
-            dependencies,
-            dependents: Default::default(),
-        }
-    }
-}
-#[cfg(feature = "debug_gate_names")]
-struct Probe {
-    name: String,
-    bits: SmallVec<[GateIndex; 1]>,
-}
-// TODO macro this?
-pub struct CircuitOutput {
-    name: String,
-    bits: SmallVec<[GateIndex; 1]>,
-}
-impl CircuitOutput {
-    pub fn u8(&self, g: &GateGraph) -> u8 {
-        g.collect_u8_lossy(&self.bits)
-    }
-    pub fn i8(&self, g: &GateGraph) -> i8 {
-        self.u8(g) as i8
-    }
-    pub fn u128(&self, g: &GateGraph) -> u128 {
-        g.collect_u128_lossy(&self.bits)
-    }
-    pub fn i128(&self, g: &GateGraph) -> i128 {
-        self.u128(g) as i128
-    }
-    pub fn char(&self, g: &GateGraph) -> char {
-        self.u8(g) as char
-    }
-    pub fn print_u8(&self, g: &GateGraph) {
-        println!("{}: {}", self.name, self.u8(g));
-    }
-    pub fn print_i8(&self, g: &GateGraph) {
-        println!("{}: {}", self.name, self.i8(g));
-    }
-    pub fn bx(&self, g: &GateGraph, n: usize) -> bool {
-        g.value(self.bits[n])
-    }
-    pub fn b0(&self, g: &GateGraph) -> bool {
-        self.bx(g, 0)
-    }
-}
-
-pub struct GateGraph {
+#[derive(Debug, Clone)]
+pub struct GateGraphBuilder {
     nodes: Slab<Gate>,
-    pending_updates: Vec<GateIndex>,
-    next_pending_updates: Vec<GateIndex>,
-    propagation_queue: VecDeque<GateIndex>, // allocated outside to prevent allocations in the hot loop.
+    output_handles: Vec<CircuitOutput>,
+    lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
-    state: State,
     #[cfg(feature = "debug_gate_names")]
     names: HashMap<GateIndex, String>,
     #[cfg(feature = "debug_gate_names")]
     probes: HashMap<GateIndex, Probe>,
 }
-impl GateGraph {
-    pub fn new() -> GateGraph {
+struct IntermediateGateGraph {
+    nodes: Vec<Gate>,
+    output_handles: Vec<CircuitOutput>,
+    lever_handles: Vec<GateIndex>,
+    outputs: HashSet<GateIndex>,
+    #[cfg(feature = "debug_gate_names")]
+    names: HashMap<GateIndex, String>,
+    #[cfg(feature = "debug_gate_names")]
+    probes: HashMap<GateIndex, Probe>,
+}
+impl GateGraphBuilder {
+    pub fn new() -> GateGraphBuilder {
         let mut nodes = Slab::new();
         nodes.insert(Gate {
             ty: Off,
@@ -200,17 +42,15 @@ impl GateGraph {
             dependencies: smallvec![],
             dependents: Default::default(),
         });
-        GateGraph {
+        GateGraphBuilder {
             nodes,
-            pending_updates: vec![],
-            next_pending_updates: vec![],
-            state: State::new(),
-            propagation_queue: VecDeque::new(),
-            outputs: HashSet::new(),
+            lever_handles: Default::default(),
+            outputs: Default::default(),
+            output_handles: Default::default(),
             #[cfg(feature = "debug_gate_names")]
-            names: HashMap::new(),
+            names: Default::default(),
             #[cfg(feature = "debug_gate_names")]
-            probes: HashMap::new(),
+            probes: Default::default(),
         }
     }
 
@@ -227,7 +67,7 @@ impl GateGraph {
                     .get_mut(new_dep.idx)
                     .unwrap()
                     .dependents
-                    .insert(idx.idx);
+                    .insert(idx);
             }
         }
     }
@@ -251,12 +91,12 @@ impl GateGraph {
             .get_mut(old_dep.idx)
             .unwrap()
             .dependents
-            .remove(&idx.idx);
+            .remove(&idx);
         self.nodes
             .get_mut(new_dep.idx)
             .unwrap()
             .dependents
-            .insert(idx.idx);
+            .insert(idx);
     }
     pub fn d0(&mut self, gate: GateIndex, dep: GateIndex) {
         self.dx(gate, dep, 0)
@@ -269,24 +109,22 @@ impl GateGraph {
     #[allow(unused_variables)]
     fn create_gate<S: Into<String>>(&mut self, idx: GateIndex, deps: &[GateIndex], name: S) {
         for dep in deps {
-            self.nodes
-                .get_mut(dep.idx)
-                .unwrap()
-                .dependents
-                .insert(idx.idx);
+            self.nodes.get_mut(dep.idx).unwrap().dependents.insert(idx);
         }
         #[cfg(feature = "debug_gate_names")]
         self.names.insert(idx, name.into());
     }
-    pub fn gate<S: Into<String>>(&mut self, ty: GateType, name: S) -> GateIndex {
+    pub(super) fn gate<S: Into<String>>(&mut self, ty: GateType, name: S) -> GateIndex {
         let idx = gi!(self.nodes.insert(Gate::new(ty, smallvec![])));
         self.create_gate(idx, &[], name);
         idx
     }
-    pub fn lever<S: Into<String>>(&mut self, name: S) -> GateIndex {
+    pub fn lever<S: Into<String>>(&mut self, name: S) -> LeverHandle {
         let idx = GateIndex::new(self.nodes.insert(Gate::new(Lever, smallvec![])));
+        let handle = self.lever_handles.len();
+        self.lever_handles.push(idx);
         self.create_gate(idx, &[], name);
-        idx
+        LeverHandle { handle, idx }
     }
     pub fn not<S: Into<String>>(&mut self, name: S) -> GateIndex {
         self.not1(OFF, name)
@@ -342,133 +180,143 @@ impl GateGraph {
         idx
     }
 
-    #[inline(always)]
-    unsafe fn fold_short(&self, ty: &GateType, gates: &[GateIndex]) -> bool {
-        let init = ty.init();
-        let short = !init;
-        // Using a manual loop results in 2% less instructions.
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..gates.len() {
-            let state = self.state.get_state_very_unsafely(gates[i]);
-            if ty.accumulate(init, state) == short {
-                return short;
-            }
-        }
-        init
-    }
-    // Main VERY HOT loop.
-    // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
-    // All unsafe invariants are checked in debug mode using debug_assert!().
-    fn tick_inner(&mut self) {
-        while let Some(idx) = self.propagation_queue.pop_front() {
-            // This is safe because the propagation queue gets filled by items coming from
-            // nodes.iter() or levers, both of which are always initialized.
-            let node = unsafe { self.nodes.get_very_unsafely(idx.idx) };
-
-            let new_state = match &node.ty {
-                On => true,
-                Off => false,
-                // This is safe because I fill the state on init.
-                Lever => unsafe { self.state.get_state_very_unsafely(idx) },
-                Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
-                Lut(lut) => {
-                    let index = self.collect_usize_lossy(&node.dependencies);
-                    lut[index]
-                }
-                Or | Nor | And | Nand | Xor | Xnor => {
-                    let mut new_state = if node.dependencies.is_empty() {
-                        false
-                    } else if node.ty.short_circuits() {
-                        // This is safe because I fill the state on init.
-                        unsafe { self.fold_short(&node.ty, &node.dependencies) }
-                    } else {
-                        let mut result = node.ty.init();
-
-                        // Using a manual loop results in 2% less instructions.
-                        #[allow(clippy::needless_range_loop)]
-                        for i in 0..node.dependencies.len() {
-                            // This is safe because I fill the state on init.
-                            let state =
-                                unsafe { self.state.get_state_very_unsafely(node.dependencies[i]) };
-                            result = node.ty.accumulate(result, state);
-                        }
-                        result
-                    };
-                    if node.ty.is_negated() {
-                        new_state = !new_state;
-                    }
-                    new_state
-                }
-            };
-            // This is safe because I fill the state on init.
-            if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
-                if old_state != new_state {
-                    self.next_pending_updates.push(idx);
-                }
-                continue;
-            }
-            // This is safe because I fill the state on init.
-            let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
-            unsafe { self.state.set_very_unsafely(idx, new_state) };
-
-            #[cfg(feature = "debug_gate_names")]
-            if old_state != new_state {
-                if let Some(probe) = self.probes.get(&idx) {
-                    match probe.bits.len() {
-                        0 => {}
-                        1 => println!("{}:{}", probe.name, new_state),
-                        2..=8 => {
-                            println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
-                        }
-                        _ => unimplemented!(),
-                    }
-                }
-            }
-            if node.ty.is_lever() || old_state != new_state {
-                self.propagation_queue
-                    .extend(node.dependents.iter().map(|i| gi!(*i)))
-            }
-        }
-    }
-    pub fn tick(&mut self) {
-        while let Some(pending) = &self.pending_updates.pop() {
-            self.state.tick();
-            self.propagation_queue.push_back(*pending);
-            self.tick_inner()
-        }
-        self.pending_updates.extend(
-            self.next_pending_updates
-                .drain(0..self.next_pending_updates.len()),
-        )
-    }
-
-    pub fn init(&mut self) {
+    pub fn init(mut self) -> InitializedGateGraph {
         self.optimize();
-        self.init_unoptimized();
+        self.init_unoptimized()
     }
-    pub fn init_unoptimized(&mut self) {
-        self.state.fill_zero(self.nodes.total_len());
 
-        for idx in self.nodes.iter().map(|(i, _)| gi!(i)).collect::<Vec<_>>() {
-            if idx != OFF && idx != ON && self.state.get_updated(idx) {
+    fn compacted(self) -> IntermediateGateGraph {
+        #[cfg(feature = "debug_gate_names")]
+        let GateGraphBuilder {
+            names,
+            nodes,
+            probes,
+            outputs,
+            output_handles,
+            lever_handles,
+        } = self;
+        let GateGraphBuilder {
+            nodes,
+            outputs,
+            output_handles,
+            lever_handles,
+        } = self;
+        if nodes.len() == nodes.total_len() {
+            return IntermediateGateGraph {
+                nodes: nodes.into_iter().map(|(_, gate)| gate).collect(),
+                #[cfg(feature = "debug_gate_names")]
+                names,
+                #[cfg(feature = "debug_gate_names")]
+                probes,
+                outputs,
+                lever_handles,
+                output_handles,
+            };
+        }
+
+        let mut index_map = HashMap::new();
+        let mut new_nodes = Vec::new();
+        index_map.reserve(nodes.len());
+        new_nodes.reserve(nodes.len());
+
+        for (new_index, (old_index, gate)) in nodes.into_iter().enumerate() {
+            index_map.insert(gi!(old_index), gi!(new_index));
+            new_nodes.push(gate);
+        }
+        for gate in &mut new_nodes {
+            for dependency in &mut gate.dependencies {
+                *dependency = index_map[dependency];
+            }
+            gate.dependents = gate.dependents.iter().map(|idx| index_map[idx]).collect();
+        }
+
+        #[cfg(feature = "debug_gate_names")]
+        let new_names = names
+            .into_iter()
+            .filter_map(|(idx, name)| Some((*index_map.get(&idx)?, name)))
+            .collect();
+
+        #[cfg(feature = "debug_gate_names")]
+        let new_probes = probes
+            .into_iter()
+            .map(|(idx, probe)| (index_map[&idx], probe))
+            .collect();
+
+        let new_output_handles = output_handles
+            .into_iter()
+            .map(|mut output| {
+                for bit in &mut output.bits {
+                    *bit = index_map[bit]
+                }
+                output
+            })
+            .collect();
+
+        let new_lever_handles = lever_handles
+            .into_iter()
+            .map(|idx| index_map[&idx])
+            .collect();
+
+        let new_outputs = outputs.into_iter().map(|idx| index_map[&idx]).collect();
+
+        IntermediateGateGraph {
+            #[cfg(feature = "debug_gate_names")]
+            names: new_names,
+            nodes: new_nodes,
+            #[cfg(feature = "debug_gate_names")]
+            probes: new_probes,
+            outputs: new_outputs,
+            output_handles: new_output_handles,
+            lever_handles: new_lever_handles,
+        }
+    }
+    pub fn init_unoptimized(self) -> InitializedGateGraph {
+        #[cfg(feature = "debug_gate_names")]
+        let IntermediateGateGraph {
+            names,
+            nodes,
+            probes,
+            outputs,
+            output_handles,
+            lever_handles,
+        } = self.compacted();
+        let IntermediateGateGraph {
+            nodes,
+            outputs,
+            output_handles,
+            lever_handles,
+        } = self.compacted();
+
+        let state = State::new(nodes.len());
+        let mut new_graph = InitializedGateGraph {
+            #[cfg(feature = "debug_gate_names")]
+            names,
+            nodes,
+            #[cfg(feature = "debug_gate_names")]
+            probes,
+            outputs,
+            output_handles,
+            lever_handles,
+            propagation_queue: Default::default(),
+            next_pending_updates: Default::default(),
+            pending_updates: Default::default(),
+            state,
+        };
+
+        for i in 0..new_graph.len() {
+            let idx = gi!(i);
+            if idx != OFF && idx != ON && new_graph.state.get_updated(idx) {
                 continue;
             }
-            self.propagation_queue.push_back(idx);
-            self.tick_inner();
+            new_graph.propagation_queue.push_back(idx);
+            new_graph.tick_inner();
         }
-        self.pending_updates.extend(
-            self.next_pending_updates
-                .drain(0..self.next_pending_updates.len()),
-        )
-    }
-    pub fn run_until_stable(&mut self, max: usize) -> Result<usize, &'static str> {
-        for i in 0..max {
-            if self.pending_updates.is_empty() {
-                return Ok(i);
-            }
-            self.tick();
-        }
-        Err("Your graph didn't stabilize")
+        new_graph.pending_updates.extend(
+            new_graph
+                .next_pending_updates
+                .drain(0..new_graph.next_pending_updates.len()),
+        );
+        new_graph
     }
 
     // Optimizations
@@ -508,34 +356,16 @@ impl GateGraph {
             self.len(),
             (old_len - self.len()) as f64 / old_len as f64 * 100f64
         );
-        /*
-        let old_len = self.len();
-        self.lut_replacement_pass();
-        println!(
-            "Optimized lut_replacement, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
-
-        let old_len = self.len();
-        self.dead_code_elimination_pass();
-        println!(
-            "Optimized dead code elimination, old size:{}, new size:{}, reduction: {:.1}%",
-            old_len,
-            self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
-        );
-        */
     }
     fn find_replacement(
         &mut self,
-        idx: usize,
+        idx: GateIndex,
         on: bool,
         from_const: bool,
         short_circuit: GateIndex,
         negated: bool,
     ) -> Option<GateIndex> {
+        let idx_usize = idx.idx;
         let short_circuit_output = if negated {
             short_circuit
                 .opposite_if_const()
@@ -547,22 +377,22 @@ impl GateGraph {
         if on == short_circuit.is_on() {
             return Some(short_circuit_output);
         }
-        let dependencies_len = self.nodes.get(idx).unwrap().dependencies.len();
+        let dependencies_len = self.nodes.get(idx_usize).unwrap().dependencies.len();
         if dependencies_len == 1 {
             if from_const {
                 return Some(short_circuit_output.opposite_if_const().unwrap());
             }
             if negated {
-                self.nodes.get_mut(idx).unwrap().ty = Not;
+                self.nodes.get_mut(idx_usize).unwrap().ty = Not;
                 return None;
             }
-            return Some(self.nodes.get(idx).unwrap().dependencies[0]);
+            return Some(self.nodes.get(idx_usize).unwrap().dependencies[0]);
         }
 
         let mut non_const_dependency = None;
         for (i, dependency) in self
             .nodes
-            .get(idx)
+            .get(idx_usize)
             .unwrap()
             .dependencies
             .iter()
@@ -579,7 +409,7 @@ impl GateGraph {
         if let Some((non_const_dependency, i)) = non_const_dependency {
             if dependencies_len == 2 {
                 if negated {
-                    let gate = self.nodes.get_mut(idx).unwrap();
+                    let gate = self.nodes.get_mut(idx_usize).unwrap();
                     gate.ty = Not;
                     gate.dependencies.remove(i + 1 % 2);
                     return None;
@@ -596,28 +426,29 @@ impl GateGraph {
     }
     fn find_replacement_xor(
         &mut self,
-        idx: usize,
+        idx: GateIndex,
         on: bool,
         from_const: bool,
         negated: bool,
     ) -> Option<GateIndex> {
-        let dependencies_len = self.nodes.get(idx).unwrap().dependencies.len();
+        let idx_usize = idx.idx;
+        let dependencies_len = self.nodes.get(idx_usize).unwrap().dependencies.len();
         if dependencies_len == 1 {
             if from_const {
                 return Some(if negated ^ on { OFF } else { ON });
             }
             if negated ^ on {
-                self.nodes.get_mut(idx).unwrap().ty = Not;
+                self.nodes.get_mut(idx_usize).unwrap().ty = Not;
                 return None;
             }
-            return Some(self.nodes.get(idx).unwrap().dependencies[0]);
+            return Some(self.nodes.get(idx_usize).unwrap().dependencies[0]);
         }
 
         let mut non_const_dependency = None;
         let mut output = negated;
         for (i, dependency) in self
             .nodes
-            .get(idx)
+            .get(idx_usize)
             .unwrap()
             .dependencies
             .iter()
@@ -633,7 +464,7 @@ impl GateGraph {
         if let Some((non_const_dependency, i)) = non_const_dependency {
             if dependencies_len == 2 {
                 if negated ^ on {
-                    let gate = self.nodes.get_mut(idx).unwrap();
+                    let gate = self.nodes.get_mut(idx_usize).unwrap();
                     gate.ty = Not;
                     gate.dependencies.remove(i + 1 % 2);
                     return None;
@@ -654,7 +485,7 @@ impl GateGraph {
         let mut temp_dependencies = Vec::new();
 
         struct WorkItem {
-            idx: usize,
+            idx: GateIndex,
             on: bool,
             from_const: bool,
         }
@@ -666,7 +497,7 @@ impl GateGraph {
             .dependents
             .drain(0..off.dependents.len())
             .map(|idx| WorkItem {
-                idx,
+                idx: idx,
                 on: false,
                 from_const: true,
             })
@@ -687,7 +518,7 @@ impl GateGraph {
         work.extend(self.nodes.iter().filter_map(|(idx, gate)| {
             if gate.dependencies.len() == 1 && !gate.dependencies[0].is_const() {
                 return Some(WorkItem {
-                    idx,
+                    idx: gi!(idx),
                     on: gate.ty.init(),
                     from_const: false,
                 });
@@ -706,14 +537,14 @@ impl GateGraph {
         }) = work.pop()
         {
             // Don't optimize out observable things.
-            if self.is_observable(gi!(idx)) {
+            if self.is_observable(idx) {
                 continue;
             }
-            if self.nodes.get(idx).is_none() {
+            if self.nodes.get(idx.idx).is_none() {
                 continue;
             }
 
-            let gate_type = &self.nodes.get(idx).unwrap().ty;
+            let gate_type = &self.nodes.get(idx.idx).unwrap().ty;
             let replacement = match gate_type {
                 Off | On | Lever => unreachable!("Off, On, and lever nodes have no dependencies"),
                 Lut(..) => None,
@@ -732,8 +563,15 @@ impl GateGraph {
                 Xnor => self.find_replacement_xor(idx, on, from_const, true),
             };
             if let Some(replacement) = replacement {
-                temp_dependents.extend(self.nodes.get(idx).unwrap().dependents.iter());
-                temp_dependencies.extend(self.nodes.get(idx).unwrap().dependencies.iter().copied());
+                temp_dependents.extend(self.nodes.get(idx.idx).unwrap().dependents.iter());
+                temp_dependencies.extend(
+                    self.nodes
+                        .get(idx.idx)
+                        .unwrap()
+                        .dependencies
+                        .iter()
+                        .copied(),
+                );
 
                 for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
                     let dependency_dependents =
@@ -753,7 +591,7 @@ impl GateGraph {
                     // A gate can have the same dependency many times in different dependency indexes.
                     let positions = self
                         .nodes
-                        .get(dependent)
+                        .get(dependent.idx)
                         .unwrap()
                         .dependencies
                         .iter()
@@ -761,14 +599,15 @@ impl GateGraph {
                         .fold(
                             SmallVec::<[usize; 2]>::new(),
                             |mut acc, (position, index)| {
-                                if index.idx == idx {
+                                if *index == idx {
                                     acc.push(position)
                                 }
                                 acc
                             },
                         );
                     for position in positions {
-                        self.nodes.get_mut(dependent).unwrap().dependencies[position] = replacement
+                        self.nodes.get_mut(dependent.idx).unwrap().dependencies[position] =
+                            replacement
                     }
                     self.nodes
                         .get_mut(replacement.idx)
@@ -777,7 +616,7 @@ impl GateGraph {
                         .insert(dependent);
                 }
 
-                self.nodes.remove(idx);
+                self.nodes.remove(idx.idx);
             }
         }
     }
@@ -814,7 +653,7 @@ impl GateGraph {
 
             for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
                 let dependency_gate = self.nodes.get_mut(dependency.idx).unwrap();
-                dependency_gate.dependents.remove(&idx.idx);
+                dependency_gate.dependents.remove(&idx);
                 if dependency_gate.dependents.is_empty() {
                     work.push(dependency)
                 }
@@ -895,6 +734,7 @@ impl GateGraph {
     // Traverses the graph backwards from nodes with no dependants removing absorbing dependencies
     // and replacing them with a look up table.
     // It's not that easy... WIP, doing research
+    /*
     fn lut_replacement_pass(&mut self) {
         let mut temp_dependencies = Vec::new();
 
@@ -925,7 +765,7 @@ impl GateGraph {
             let mut new_dependencies = SmallVec::<[GateIndex; GATE_TINYVEC_SIZE]>::new();
             let mut lut: BitVec = BitVec::new();
 
-            let subgraph = &mut GateGraph::new();
+            let subgraph = &mut GateGraphBuilder::new();
             let subgraph_root_idx = subgraph.gate(ty, "subgraph");
             let subgraph_output = subgraph.output1(subgraph_root_idx, "subgraph-out");
             let mut subgraph_levers = Vec::<GateIndex>::new();
@@ -989,75 +829,7 @@ impl GateGraph {
             gate.ty = GateType::Lut(lut);
         }
     }
-
-    // Input operations.
-    fn update_lever_inner(&mut self, lever: GateIndex, value: bool) {
-        assert!(
-            self.nodes
-                .get(lever.idx)
-                .map(|l| l.ty.is_lever())
-                .unwrap_or(false),
-            "NodeIndex {} is not a lever",
-            lever
-        );
-        if self.state.get_state(lever) != value {
-            self.state.set(lever, value);
-            self.pending_updates.push(lever);
-        }
-    }
-    pub fn update_levers<I: Iterator<Item = bool>>(&mut self, levers: &[GateIndex], values: I) {
-        for (lever, value) in levers.iter().zip(values) {
-            self.update_lever_inner(*lever, value);
-        }
-        self.tick()
-    }
-    pub fn update_lever(&mut self, lever: GateIndex, value: bool) {
-        self.update_lever_inner(lever, value);
-        self.tick()
-    }
-    pub fn set_lever(&mut self, lever: GateIndex) {
-        self.update_lever(lever, true)
-    }
-    pub fn reset_lever(&mut self, lever: GateIndex) {
-        self.update_lever(lever, false)
-    }
-    pub fn flip_lever(&mut self, lever: GateIndex) {
-        assert!(
-            self.nodes
-                .get(lever.idx)
-                .map(|l| l.ty.is_lever())
-                .unwrap_or(false),
-            "NodeIndex {} is not a lever",
-            lever
-        );
-
-        self.state.set(lever, !self.state.get_state(lever));
-        self.pending_updates.push(lever);
-        self.tick();
-    }
-    pub fn pulse_lever(&mut self, lever: GateIndex) {
-        self.set_lever(lever);
-        self.reset_lever(lever);
-    }
-
-    pub fn set_lever_stable(&mut self, lever: GateIndex) {
-        self.set_lever(lever);
-        self.run_until_stable(10).unwrap();
-    }
-    pub fn reset_lever_stable(&mut self, lever: GateIndex) {
-        self.reset_lever(lever);
-        self.run_until_stable(10).unwrap();
-    }
-    pub fn flip_lever_stable(&mut self, lever: GateIndex) {
-        self.flip_lever(lever);
-        self.run_until_stable(10).unwrap();
-    }
-    pub fn pulse_lever_stable(&mut self, lever: GateIndex) {
-        self.set_lever(lever);
-        self.run_until_stable(10).unwrap();
-        self.reset_lever(lever);
-        self.run_until_stable(10).unwrap();
-    }
+    */
 
     // Output operations.
     fn is_observable(&self, gate: GateIndex) -> bool {
@@ -1070,72 +842,20 @@ impl GateGraph {
         }
         false
     }
-    pub fn output<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> CircuitOutput {
+    pub fn output<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> CircuitOutputHandle {
         for bit in bits {
             self.outputs.insert(*bit);
         }
-        CircuitOutput {
+        self.output_handles.push(CircuitOutput {
             bits: bits.into(),
             name: name.into(),
-        }
+        });
+        CircuitOutputHandle(self.output_handles.len() - 1)
     }
-    pub fn output1<S: Into<String>>(&mut self, bit: GateIndex, name: S) -> CircuitOutput {
-        self.outputs.insert(bit);
-        CircuitOutput {
-            bits: smallvec![bit],
-            name: name.into(),
-        }
+    pub fn output1<S: Into<String>>(&mut self, bit: GateIndex, name: S) -> CircuitOutputHandle {
+        self.output(&[bit], name)
     }
-    fn value(&self, idx: GateIndex) -> bool {
-        self.state.get_state(idx)
-    }
-    // Collect only first 8 bits from a larger bus.
-    // Or only some bits from a smaller bus.
-    fn collect_u8_lossy(&self, outputs: &[GateIndex]) -> u8 {
-        let mut output = 0;
-        let mut mask = 1u8;
 
-        for bit in outputs.iter().take(8) {
-            if self.value(*bit) {
-                output |= mask
-            }
-
-            mask <<= 1;
-        }
-
-        output
-    }
-    fn collect_usize_lossy(&self, outputs: &[GateIndex]) -> usize {
-        let mut output = 0;
-        let mut mask = 1usize;
-        let usize_width = std::mem::size_of::<usize>() * 8;
-
-        for bit in outputs.iter().take(usize_width) {
-            if self.value(*bit) {
-                output |= mask
-            }
-
-            mask <<= 1;
-        }
-
-        output
-    }
-    // Collect only first 128 bits from a larger bus.
-    // Or only some bits from a smaller bus.
-    fn collect_u128_lossy(&self, outputs: &[GateIndex]) -> u128 {
-        let mut output = 0;
-        let mut mask = 1u128;
-
-        for bit in outputs.iter().take(128) {
-            if self.value(*bit) {
-                output |= mask
-            }
-
-            mask <<= 1;
-        }
-
-        output
-    }
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
@@ -1199,38 +919,9 @@ impl GateGraph {
     pub fn probe1<S: Into<String>>(&mut self, bit: GateIndex, name: S) {
         self.probe(&[bit], name)
     }
-
-    // Test operations.
-    #[cfg(test)]
-    pub fn assert_propagation(&mut self, expected: usize) {
-        let actual = self
-            .run_until_stable(1000)
-            .expect("Circuit didn't stabilize after 1000 ticks");
-
-        assert!(
-            actual == expected,
-            "Circuit stabilized after {} ticks, expected: {}",
-            actual,
-            expected
-        );
-    }
-    #[cfg(test)]
-    pub fn assert_propagation_range(&mut self, expected: std::ops::Range<usize>) {
-        let actual = self
-            .run_until_stable(1000)
-            .expect("Circuit didn't stabilize after 1000 ticks");
-
-        assert!(
-            expected.contains(&actual),
-            "Circuit stabilized after {} ticks, which is outside the range: {}..{}",
-            actual,
-            expected.start,
-            expected.end
-        );
-    }
 }
 
-impl Default for GateGraph {
+impl Default for GateGraphBuilder {
     fn default() -> Self {
         Self::new()
     }
@@ -1242,20 +933,21 @@ mod tests {
 
     #[test]
     fn test_flip_flop() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let set = g.lever("");
         let reset = g.lever("");
 
-        let flip = g.or2(reset, OFF, "");
+        let flip = g.or2(reset.bit(), OFF, "");
         let q = g.not1(flip, "");
 
-        let flop = g.or2(set, q, "");
+        let flop = g.or2(set.bit(), q, "");
         let nq = g.not1(flop, "");
         g.d1(flip, nq);
 
         let output = g.output1(nq, "nq");
-        g.init();
+        let g = &mut graph.init();
 
         g.run_until_stable(10).unwrap();
         for _ in 0..10 {
@@ -1275,14 +967,15 @@ mod tests {
     }
     #[test]
     fn test_not_loop() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
         let n1 = g.not("n1");
         let n2 = g.not1(n1, "n2");
         let n3 = g.not1(n2, "n3");
         g.d0(n1, n3);
 
         let output = g.output1(n1, "n1");
-        g.init();
+        let g = &mut graph.init();
 
         let mut a = true;
         for _ in 0..10 {
@@ -1296,12 +989,13 @@ mod tests {
     }
     #[test]
     fn test_big_and() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
         let and = g.and2(ON, ON, "and");
         let output = g.output(&[and], "big_and");
         g.dpush(and, ON);
         g.dpush(and, ON);
-        g.init();
+        let g = &mut graph.init();
 
         assert_eq!(output.b0(g), true)
     }

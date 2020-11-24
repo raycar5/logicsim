@@ -6,7 +6,7 @@ fn mkname(name: String) -> String {
 }
 
 pub fn register<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     input: &[GateIndex],
     clock: GateIndex,
     write: GateIndex,
@@ -34,7 +34,8 @@ mod tests {
 
     #[test]
     fn test_register() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
         let value = 3u8;
 
         let input = WordInput::new(g, 8, "input");
@@ -44,12 +45,20 @@ mod tests {
         let reset = g.lever("reset");
         let clock = g.lever("clock");
 
-        let r = register(g, input.bits(), clock, write, read, reset, "reg");
+        let r = register(
+            g,
+            &input.bits(),
+            clock.bit(),
+            write.bit(),
+            read.bit(),
+            reset.bit(),
+            "reg",
+        );
 
         //let output =
         let out = g.output(&r, "out");
 
-        g.init();
+        let g = &mut graph.init();
 
         input.set(g, value);
 

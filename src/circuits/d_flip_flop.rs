@@ -5,7 +5,7 @@ fn mkname(name: String) -> String {
 }
 
 pub fn d_flip_flop<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     d: GateIndex,
     clock: GateIndex,
     write: GateIndex,
@@ -34,16 +34,24 @@ mod tests {
 
     #[test]
     fn test_flip_flop() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let d = g.lever("d");
         let read = g.lever("read");
         let write = g.lever("write");
         let clock = g.lever("clock");
 
-        let output = d_flip_flop(g, d, clock, write, read, "flippity floop");
+        let output = d_flip_flop(
+            g,
+            d.bit(),
+            clock.bit(),
+            write.bit(),
+            read.bit(),
+            "flippity floop",
+        );
         let out = g.output1(output, "out");
-        g.init();
+        let g = &mut graph.init();
 
         g.run_until_stable(10).unwrap();
         assert_eq!(out.b0(g), false);

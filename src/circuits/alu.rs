@@ -6,7 +6,7 @@ fn mkname(name: String) -> String {
 }
 
 pub fn alu<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     cin: GateIndex,
     write_to_bus: GateIndex,
     invert_input_2: GateIndex,

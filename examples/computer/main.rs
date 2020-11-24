@@ -8,7 +8,8 @@ mod control_logic;
 use control_logic::ControlSignalsSet;
 
 fn main() {
-    let g = &mut GateGraph::new();
+    let mut graph = GateGraphBuilder::new();
+    let g = &mut graph;
     let bits = 8;
     let ram_address_space = 2;
 
@@ -19,9 +20,9 @@ fn main() {
     let reset_lever = reset.lever(g);
     let nclock = g.not1(clock.bit(), "nclock");
 
-    const TEXT_OUTPUT: bool = true;
-    //let rom_data = programs::multiply_rom(51, -2i8 as u8);
-    let rom_data = programs::echo_rom("Heya world");
+    const TEXT_OUTPUT: bool = false;
+    let rom_data = programs::multiply_rom(51, -2i8 as u8);
+    //let rom_data = programs::echo_rom("Heya world");
 
     let signals = ControlSignalsSet::new(g);
     let pc_output = counter(
@@ -143,7 +144,7 @@ fn main() {
     let mut t = std::time::Instant::now();
     let output = g.output(&rego_output, "output");
     //g.dump_dot(std::path::Path::new("computer.dot"));
-    g.init();
+    let g = &mut graph.init();
     //g.dump_dot(std::path::Path::new("computer_optimized.dot"));
     g.run_until_stable(100).unwrap();
 

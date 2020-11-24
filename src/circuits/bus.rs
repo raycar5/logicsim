@@ -10,13 +10,13 @@ pub struct Bus {
     bits: Vec<GateIndex>,
 }
 impl Bus {
-    pub fn new<S: Into<String>>(g: &mut GateGraph, n: usize, name: S) -> Self {
+    pub fn new<S: Into<String>>(g: &mut GateGraphBuilder, n: usize, name: S) -> Self {
         let name = mkname(name.into());
         Self {
             bits: (0..n).map(|_| g.or(name.clone())).collect(),
         }
     }
-    pub fn connect(&mut self, g: &mut GateGraph, other: &[GateIndex]) {
+    pub fn connect(&mut self, g: &mut GateGraphBuilder, other: &[GateIndex]) {
         assert_eq!(
             self.bits.len(),
             other.len(),
@@ -24,7 +24,7 @@ impl Bus {
         );
         self.connect_some(g, other);
     }
-    pub fn connect_some(&mut self, g: &mut GateGraph, other: &[GateIndex]) {
+    pub fn connect_some(&mut self, g: &mut GateGraphBuilder, other: &[GateIndex]) {
         for (or, bit) in self.bits.iter().zip(other) {
             g.dpush(*or, *bit);
         }
@@ -44,7 +44,7 @@ impl Bus {
     pub fn b0(&self) -> GateIndex {
         self.bits[0]
     }
-    pub fn split_wires(&self, g: &mut GateGraph, other: &mut [Wire]) {
+    pub fn split_wires(&self, g: &mut GateGraphBuilder, other: &mut [Wire]) {
         assert_eq!(self.len(), other.len());
         for (bit, wire) in self.bits.iter().zip(other) {
             wire.connect(g, *bit)

@@ -6,7 +6,7 @@ fn mkname(name: String) -> String {
 }
 
 pub fn multiplexer<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     address: &[GateIndex],
     inputs: &[GateIndex],
     name: S,

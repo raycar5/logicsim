@@ -1,6 +1,7 @@
 use wires::*;
 fn main() {
-    let g = &mut GateGraph::new();
+    let mut graph = GateGraphBuilder::new();
+    let g = &mut graph;
     let bits = 128;
     let a = 0u128;
     let b = -10000i128;
@@ -8,10 +9,10 @@ fn main() {
     let input1 = WordInput::new(g, bits, "input");
     let input2 = WordInput::new(g, bits, "input");
 
-    let output = adder(g, OFF, input1.bits(), input2.bits(), "adder");
+    let output = adder(g, OFF, &input1.bits(), &input2.bits(), "adder");
     let out = g.output(&output, "out");
 
-    g.init();
+    let g = &mut graph.init();
     input1.set(g, a);
     input2.set(g, b);
 

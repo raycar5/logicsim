@@ -7,7 +7,7 @@ fn mkname(name: String) -> String {
 
 // The output bus size will be the biggest of the input buses.
 pub fn bus_multiplexer<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     address: &[GateIndex],
     inputs: &[&[GateIndex]],
     name: S,

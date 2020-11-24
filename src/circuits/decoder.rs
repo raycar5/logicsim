@@ -1,4 +1,4 @@
-use crate::bititer::BitIter;
+use crate::data_structures::BitIter;
 use crate::graph::*;
 
 fn mkname(name: String) -> String {
@@ -6,7 +6,7 @@ fn mkname(name: String) -> String {
 }
 
 pub fn decoder<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     address: &[GateIndex],
     name: S,
 ) -> Vec<GateIndex> {
@@ -41,12 +41,13 @@ mod tests {
 
     #[test]
     fn test_decoder() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
         let c = WordInput::new(g, 2, "input");
         let out = decoder(g, &c.bits(), "decoder");
         let out = g.output(&out, "out");
 
-        g.init();
+        let g = &mut graph.init();
         g.run_until_stable(10).unwrap();
 
         assert_eq!(out.u8(g), 1);

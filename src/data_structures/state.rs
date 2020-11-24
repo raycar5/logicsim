@@ -1,4 +1,4 @@
-use crate::bititer::word_mask_64;
+use super::bititer::word_mask_64;
 use crate::graph::GateIndex;
 use num_integer::div_ceil;
 use pretty_hex::*;
@@ -8,15 +8,11 @@ pub struct State {
     updated: Vec<u64>,
 }
 impl State {
-    pub fn new() -> State {
-        let states = Vec::new();
-        let updated = Vec::new();
+    pub fn new(n: usize) -> State {
+        let states = vec![0; div_ceil(n, 64)];
+        let updated = vec![0; div_ceil(n, 64)];
 
         State { states, updated }
-    }
-    pub fn fill_zero(&mut self, n: usize) {
-        self.states = vec![0; div_ceil(n, 64)];
-        self.updated = vec![0; div_ceil(n, 64)];
     }
 
     #[inline(always)]
@@ -164,11 +160,6 @@ impl State {
         *updated |= mask;
     }
 }
-impl Default for State {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -177,7 +168,7 @@ mod tests {
     #[test]
     fn test_get_set() {
         for i in 2..100 {
-            let mut state = State::new();
+            let mut state = State::new(100);
             assert_eq!(state.get_state(gi!(i)), false);
             assert_eq!(state.get_updated(gi!(i)), false);
 
@@ -195,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_tick() {
-        let mut state = State::new();
+        let mut state = State::new(100);
         for i in 2..100 {
             assert_eq!(state.get_state(gi!(i)), false, "index: {}", i);
             assert_eq!(state.get_updated(gi!(i)), false, "index: {}", i);

@@ -8,7 +8,7 @@ fn mkname(name: String) -> String {
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
 pub fn counter<S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     clock: GateIndex,
     enable: GateIndex,
     write: GateIndex,
@@ -65,7 +65,8 @@ mod tests {
 
     #[test]
     fn test_counter_counts() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let val = 34u8;
         let input = &constant(val)[0..2];
@@ -75,10 +76,19 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let c = counter(g, clock, enable, write, read, reset, input, "counter");
+        let c = counter(
+            g,
+            clock.bit(),
+            enable.bit(),
+            write.bit(),
+            read.bit(),
+            reset.bit(),
+            input,
+            "counter",
+        );
         let output = g.output(&c, "counter");
 
-        g.init();
+        let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
         g.set_lever(reset);
@@ -111,7 +121,8 @@ mod tests {
     }
     #[test]
     fn test_counter_write() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let val = 34u8;
         let input = &constant(val);
@@ -120,10 +131,19 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let c = counter(g, clock, ON, write, read, reset, input, "counter");
+        let c = counter(
+            g,
+            clock.bit(),
+            ON,
+            write.bit(),
+            read.bit(),
+            reset.bit(),
+            input,
+            "counter",
+        );
         let output = g.output(&c, "counter");
 
-        g.init();
+        let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
         g.set_lever(read);
@@ -142,7 +162,8 @@ mod tests {
     }
     #[test]
     fn test_counter_reset() {
-        let g = &mut GateGraph::new();
+        let mut graph = GateGraphBuilder::new();
+        let g = &mut graph;
 
         let val = 34u8;
         let input = &constant(val);
@@ -151,10 +172,19 @@ mod tests {
         let write = g.lever("write");
         let reset = g.lever("reset");
 
-        let c = counter(g, clock, ON, write, read, reset, input, "counter");
+        let c = counter(
+            g,
+            clock.bit(),
+            ON,
+            write.bit(),
+            read.bit(),
+            reset.bit(),
+            input,
+            "counter",
+        );
         let output = g.output(&c, "counter");
 
-        g.init();
+        let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
         g.set_lever(read);

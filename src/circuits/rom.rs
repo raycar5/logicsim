@@ -8,7 +8,7 @@ fn mkname(name: String) -> String {
 
 // Will fill missing addresses with zeros
 pub fn rom<T: Copy, S: Into<String>>(
-    g: &mut GateGraph,
+    g: &mut GateGraphBuilder,
     read: GateIndex,
     address: &[GateIndex],
     data: &[T],

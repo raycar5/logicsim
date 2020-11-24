@@ -1,4 +1,4 @@
-use crate::bititer::BitIter;
+use crate::data_structures::BitIter;
 use crate::graph::*;
 
 pub fn constant<T: Copy>(c: T) -> Vec<GateIndex> {
@@ -30,8 +30,6 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        let g = &mut GateGraph::new();
-
         let constants = [0, 0b1u8, 0b10010010];
         let results = [
             [false, false, false, false, false, false, false, false],
@@ -39,8 +37,12 @@ mod tests {
             [false, true, false, false, true, false, false, true],
         ];
         for (c, result) in constants.iter().zip(results.iter()) {
+            let mut graph = GateGraphBuilder::new();
+            let g = &mut graph;
             let output: Vec<_> = constant(*c);
             let out = g.output(&output, "out");
+
+            let g = &mut graph.init();
 
             for (i, result) in result.iter().enumerate() {
                 assert_eq!(out.bx(g, i), *result)
