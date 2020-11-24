@@ -9,10 +9,10 @@ edition = "2018"
 [profile.release]
 debug = true
 [features]
-#default = ["debug_gate_names"]
+#default = ["debug_gates"]
 default = []
 
-debug_gate_names = []
+debug_gates = []
 
 [dependencies]
 colour = "0.5.0"

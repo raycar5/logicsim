@@ -134,7 +134,7 @@ impl Gate {
     }
 }
 #[derive(Debug, Clone)]
-#[cfg(feature = "debug_gate_names")]
+#[cfg(feature = "debug_gates")]
 pub(super) struct Probe {
     pub name: String,
     pub bits: SmallVec<[GateIndex; 1]>,

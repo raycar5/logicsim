@@ -12,9 +12,9 @@ pub struct InitializedGateGraph {
     pub(super) lever_handles: Vec<GateIndex>,
     pub(super) outputs: HashSet<GateIndex>,
     pub(super) state: State,
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     pub(super) names: HashMap<GateIndex, String>,
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     pub(super) probes: HashMap<GateIndex, Probe>,
 }
 use GateType::*;
@@ -89,7 +89,7 @@ impl InitializedGateGraph {
             let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
             unsafe { self.state.set_very_unsafely(idx, new_state) };
 
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             if old_state != new_state {
                 if let Some(probe) = self.probes.get(&idx) {
                     match probe.bits.len() {
@@ -248,20 +248,20 @@ impl InitializedGateGraph {
         let mut index = HashMap::new();
         for (i, node) in self.nodes.iter().enumerate() {
             let is_out = self.outputs.contains(&gi!(i));
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             let name = self
                 .names
                 .get(&gi!(i))
                 .map(|name| format!(":{}", name))
                 .unwrap_or("".to_string());
 
-            #[cfg(not(feature = "debug_gate_names"))]
+            #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {
                 format!("output:{}", node.ty)
             } else {
                 node.ty.to_string()
             };
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             let label = if is_out {
                 format!("O:{}{}", node.ty, name)
             } else {
