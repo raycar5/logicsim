@@ -90,6 +90,9 @@ impl GateType {
     pub fn is_lever(&self) -> bool {
         matches!(self, Lever)
     }
+    pub fn is_not(&self) -> bool {
+        matches!(self, Not)
+    }
     pub fn is_negated(&self) -> bool {
         matches!(self, Nor | Nand | Not | Xnor)
     }

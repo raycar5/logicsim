@@ -334,6 +334,15 @@ impl GateGraphBuilder {
         );
 
         let old_len = self.len();
+        not_deduplication_pass(self);
+        println!(
+            "Optimized not deduplication, old size:{}, new size:{}, reduction: {:.1}%",
+            old_len,
+            self.len(),
+            (old_len - self.len()) as f64 / old_len as f64 * 100f64
+        );
+
+        let old_len = self.len();
         duplicate_dependency_elimination_pass(self);
         println!(
             "Optimized duplicate dependency, old size:{}, new size:{}, reduction: {:.1}%",

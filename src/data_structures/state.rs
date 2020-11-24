@@ -113,18 +113,21 @@ impl State {
     /// # Safety
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
+    #[inline(always)]
     pub unsafe fn get_state_very_unsafely(&self, index: GateIndex) -> bool {
         Self::get_from_bit_vec_very_unsafely(&self.states, index.idx)
     }
     /// # Safety
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
+    #[inline(always)]
     pub unsafe fn get_updated_very_unsafely(&self, index: GateIndex) -> bool {
         Self::get_from_bit_vec_very_unsafely(&self.updated, index.idx)
     }
     /// # Safety
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
+    #[inline(always)]
     pub unsafe fn get_if_updated_very_unsafely(&self, index: GateIndex) -> Option<bool> {
         if self.get_updated_very_unsafely(index) {
             Some(self.get_state_very_unsafely(index))
@@ -135,6 +138,7 @@ impl State {
     /// # Safety
     /// This function is safe if index < [State::len()].
     /// This invariant is checked in debug mode.
+    #[inline(always)]
     pub unsafe fn set_very_unsafely(&mut self, index: GateIndex, value: bool) {
         let (word_index, mask) = word_mask_64(index.idx);
 
