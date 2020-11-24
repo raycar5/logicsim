@@ -9,8 +9,8 @@ edition = "2018"
 [profile.release]
 debug = true
 [features]
-#default = ["debug_gates"]
-default = []
+default = ["debug_gates"]
+#default = []
 
 debug_gates = []
 

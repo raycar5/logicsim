@@ -53,22 +53,8 @@ impl State {
         }
     }
 
-    fn reserve_for_word(&mut self, word_index: usize) {
-        let len = self.states.len();
-        let diff = word_index as i64 + 1 - len as i64;
-        if diff > 0 {
-            self.states.reserve(diff as usize);
-            self.updated.reserve(diff as usize);
-
-            self.states.extend((0..diff).map(|_| 0));
-            self.updated.extend((0..diff).map(|_| 0));
-        }
-    }
-
     pub fn set(&mut self, index: GateIndex, value: bool) {
         let (word_index, mask) = word_mask_64(index.idx);
-
-        self.reserve_for_word(word_index);
 
         let state = &mut self.states[word_index];
         if value {
@@ -83,7 +69,6 @@ impl State {
 
     pub fn set_updated(&mut self, index: GateIndex) {
         let (word_index, mask) = word_mask_64(index.idx);
-        self.reserve_for_word(word_index);
         let updated = &mut self.updated[word_index];
         *updated |= mask;
     }
@@ -104,6 +89,13 @@ impl State {
             )
         };
         println!("{}", pretty_hex(&slice));
+    }
+
+    pub fn len(&self) -> usize {
+        self.states.len() * 64
+    }
+    pub fn is_empty(&self) -> bool {
+        self.states.len() == 0
     }
 
     // The dark corner.

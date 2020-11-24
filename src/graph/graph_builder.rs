@@ -15,9 +15,9 @@ pub struct GateGraphBuilder {
     output_handles: Vec<CircuitOutput>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     names: HashMap<GateIndex, String>,
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     probes: HashMap<GateIndex, Probe>,
 }
 struct CompactedGateGraph {
@@ -25,9 +25,9 @@ struct CompactedGateGraph {
     output_handles: Vec<CircuitOutput>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     names: HashMap<GateIndex, String>,
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     probes: HashMap<GateIndex, Probe>,
 }
 impl GateGraphBuilder {
@@ -48,9 +48,9 @@ impl GateGraphBuilder {
             lever_handles: Default::default(),
             outputs: Default::default(),
             output_handles: Default::default(),
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             names: Default::default(),
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             probes: Default::default(),
         }
     }
@@ -111,7 +111,7 @@ impl GateGraphBuilder {
         for dep in deps {
             self.nodes.get_mut(dep.idx).unwrap().dependents.insert(idx);
         }
-        #[cfg(feature = "debug_gate_names")]
+        #[cfg(feature = "debug_gates")]
         self.names.insert(idx, name.into());
     }
     pub fn lever<S: Into<String>>(&mut self, name: S) -> LeverHandle {
@@ -181,7 +181,7 @@ impl GateGraphBuilder {
     }
 
     fn compacted(self) -> CompactedGateGraph {
-        #[cfg(feature = "debug_gate_names")]
+        #[cfg(feature = "debug_gates")]
         let GateGraphBuilder {
             names,
             nodes,
@@ -190,6 +190,7 @@ impl GateGraphBuilder {
             output_handles,
             lever_handles,
         } = self;
+        #[cfg(not(feature = "debug_gates"))]
         let GateGraphBuilder {
             nodes,
             outputs,
@@ -199,9 +200,9 @@ impl GateGraphBuilder {
         if nodes.len() == nodes.total_len() {
             return CompactedGateGraph {
                 nodes: nodes.into_iter().map(|(_, gate)| gate).collect(),
-                #[cfg(feature = "debug_gate_names")]
+                #[cfg(feature = "debug_gates")]
                 names,
-                #[cfg(feature = "debug_gate_names")]
+                #[cfg(feature = "debug_gates")]
                 probes,
                 outputs,
                 lever_handles,
@@ -225,13 +226,13 @@ impl GateGraphBuilder {
             gate.dependents = gate.dependents.iter().map(|idx| index_map[idx]).collect();
         }
 
-        #[cfg(feature = "debug_gate_names")]
+        #[cfg(feature = "debug_gates")]
         let new_names = names
             .into_iter()
             .filter_map(|(idx, name)| Some((*index_map.get(&idx)?, name)))
             .collect();
 
-        #[cfg(feature = "debug_gate_names")]
+        #[cfg(feature = "debug_gates")]
         let new_probes = probes
             .into_iter()
             .map(|(idx, probe)| (index_map[&idx], probe))
@@ -255,10 +256,10 @@ impl GateGraphBuilder {
         let new_outputs = outputs.into_iter().map(|idx| index_map[&idx]).collect();
 
         CompactedGateGraph {
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             names: new_names,
             nodes: new_nodes,
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             probes: new_probes,
             outputs: new_outputs,
             output_handles: new_output_handles,
@@ -266,8 +267,8 @@ impl GateGraphBuilder {
         }
     }
     pub fn init_unoptimized(self) -> InitializedGateGraph {
-        #[cfg(feature = "debug_gate_names")]
-        let IntermediateGateGraph {
+        #[cfg(feature = "debug_gates")]
+        let CompactedGateGraph {
             names,
             nodes,
             probes,
@@ -275,6 +276,7 @@ impl GateGraphBuilder {
             output_handles,
             lever_handles,
         } = self.compacted();
+        #[cfg(not(feature = "debug_gates"))]
         let CompactedGateGraph {
             nodes,
             outputs,
@@ -284,14 +286,14 @@ impl GateGraphBuilder {
 
         let state = State::new(nodes.len());
         let mut new_graph = InitializedGateGraph {
-            #[cfg(feature = "debug_gate_names")]
-            names,
+            #[cfg(feature = "debug_gates")]
+            names: names.into(),
             nodes,
-            #[cfg(feature = "debug_gate_names")]
-            probes,
-            outputs,
-            output_handles,
-            lever_handles,
+            #[cfg(feature = "debug_gates")]
+            probes: probes.into(),
+            outputs: outputs.into(),
+            output_handles: output_handles.into(),
+            lever_handles: lever_handles.into(),
             propagation_queue: Default::default(),
             next_pending_updates: Default::default(),
             pending_updates: Default::default(),
@@ -358,7 +360,7 @@ impl GateGraphBuilder {
         if self.outputs.contains(&gate) {
             return true;
         }
-        #[cfg(feature = "debug_gate_names")]
+        #[cfg(feature = "debug_gates")]
         if self.probes.contains_key(&gate) {
             return true;
         }
@@ -392,20 +394,20 @@ impl GateGraphBuilder {
         let mut index = HashMap::new();
         for (i, node) in self.nodes.iter() {
             let is_out = self.outputs.contains(&gi!(i));
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             let name = self
                 .names
                 .get(&gi!(i))
                 .map(|name| format!(":{}", name))
                 .unwrap_or("".to_string());
 
-            #[cfg(not(feature = "debug_gate_names"))]
+            #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {
                 format!("output:{}", node.ty)
             } else {
                 node.ty.to_string()
             };
-            #[cfg(feature = "debug_gate_names")]
+            #[cfg(feature = "debug_gates")]
             let label = if is_out {
                 format!("O:{}{}", node.ty, name)
             } else {
@@ -424,7 +426,7 @@ impl GateGraphBuilder {
     }
 
     // Debug operations.
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     pub fn probe<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) {
         let name = name.into();
         for bit in bits {
@@ -432,12 +434,12 @@ impl GateGraphBuilder {
                 *bit,
                 Probe {
                     name: name.clone(),
-                    bits: SmallVec::from_slice(bits),
+                    bits: smallvec::SmallVec::from_slice(bits),
                 },
             );
         }
     }
-    #[cfg(feature = "debug_gate_names")]
+    #[cfg(feature = "debug_gates")]
     pub fn probe1<S: Into<String>>(&mut self, bit: GateIndex, name: S) {
         self.probe(&[bit], name)
     }

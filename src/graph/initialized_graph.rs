@@ -1,32 +1,35 @@
 use super::types::*;
-use crate::data_structures::State;
+use crate::data_structures::{Immutable, State};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 pub struct InitializedGateGraph {
+    // TODO: The line below makes it slower, that is a bug in the compiler, report it.
+    //pub(super) nodes: Immutable<Vec<Gate>>,
     pub(super) nodes: Vec<Gate>,
     pub(super) pending_updates: Vec<GateIndex>,
     pub(super) next_pending_updates: Vec<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
     pub(super) propagation_queue: VecDeque<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
-    pub(super) output_handles: Vec<CircuitOutput>,
-    pub(super) lever_handles: Vec<GateIndex>,
-    pub(super) outputs: HashSet<GateIndex>,
+    pub(super) output_handles: Immutable<Vec<CircuitOutput>>,
+    pub(super) lever_handles: Immutable<Vec<GateIndex>>,
+    pub(super) outputs: Immutable<HashSet<GateIndex>>,
     pub(super) state: State,
     #[cfg(feature = "debug_gates")]
-    pub(super) names: HashMap<GateIndex, String>,
+    pub(super) names: Immutable<HashMap<GateIndex, String>>,
     #[cfg(feature = "debug_gates")]
-    pub(super) probes: HashMap<GateIndex, Probe>,
+    pub(super) probes: Immutable<HashMap<GateIndex, Probe>>,
 }
 use GateType::*;
 impl InitializedGateGraph {
     #[inline(always)]
-    unsafe fn fold_short(&self, ty: &GateType, gates: &[GateIndex]) -> bool {
+    fn fold_short(&self, ty: &GateType, gates: &[GateIndex]) -> bool {
         let init = ty.init();
         let short = !init;
         // Using a manual loop results in 2% less instructions.
         #[allow(clippy::needless_range_loop)]
         for i in 0..gates.len() {
-            let state = self.state.get_state_very_unsafely(gates[i]);
+            // This is safe because in an InitializedGraph nodes.len() < state.len().
+            let state = unsafe { self.state.get_state_very_unsafely(gates[i]) };
             if ty.accumulate(init, state) == short {
                 return short;
             }
@@ -37,6 +40,8 @@ impl InitializedGateGraph {
     // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
     // All unsafe invariants are checked in debug mode using debug_assert!().
     pub(super) fn tick_inner(&mut self) {
+        // Check the State unsafe invariant once instead of on every call.
+        debug_assert!(self.nodes.len() < self.state.len());
         while let Some(idx) = self.propagation_queue.pop_front() {
             // This is safe because the propagation queue gets filled by items coming from
             // nodes.iter() or levers, both of which are always in bounds.
@@ -46,22 +51,21 @@ impl InitializedGateGraph {
             let new_state = match &node.ty {
                 On => true,
                 Off => false,
-                // This is safe because I fill the state on init.
+                // This is safe because in an InitializedGraph nodes.len() < state.len().
                 Lever => unsafe { self.state.get_state_very_unsafely(idx) },
                 Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
                 Or | Nor | And | Nand | Xor | Xnor => {
                     let mut new_state = if node.dependencies.is_empty() {
                         false
                     } else if node.ty.short_circuits() {
-                        // This is safe because I fill the state on init.
-                        unsafe { self.fold_short(&node.ty, &node.dependencies) }
+                        self.fold_short(&node.ty, &node.dependencies)
                     } else {
                         let mut result = node.ty.init();
 
                         // Using a manual loop results in 2% less instructions.
                         #[allow(clippy::needless_range_loop)]
                         for i in 0..node.dependencies.len() {
-                            // This is safe because I fill the state on init.
+                            // This is safe because in an InitializedGraph nodes.len() < state.len().
                             let state =
                                 unsafe { self.state.get_state_very_unsafely(node.dependencies[i]) };
                             result = node.ty.accumulate(result, state);
@@ -74,20 +78,20 @@ impl InitializedGateGraph {
                     new_state
                 }
             };
-            // This is safe because I fill the state on init.
+            // This is safe because in an InitializedGraph nodes.len() < state.len().
             if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
                 if old_state != new_state {
                     self.next_pending_updates.push(idx);
                 }
                 continue;
             }
-            // This is safe because I fill the state on init.
+            // This is safe because in an InitializedGraph nodes.len() < state.len().
             let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
             unsafe { self.state.set_very_unsafely(idx, new_state) };
 
             #[cfg(feature = "debug_gates")]
             if old_state != new_state {
-                if let Some(probe) = self.probes.get(&idx) {
+                if let Some(probe) = self.probes.get().get(&idx) {
                     match probe.bits.len() {
                         0 => {}
                         1 => println!("{}:{}", probe.name, new_state),
@@ -126,7 +130,7 @@ impl InitializedGateGraph {
     }
     // Input operations.
     fn update_lever_inner(&mut self, lever: LeverHandle, value: bool) {
-        let idx = self.lever_handles[lever.handle];
+        let idx = self.lever_handles.get()[lever.handle];
         if self.state.get_state(idx) != value {
             self.state.set(idx, value);
             self.pending_updates.push(idx);
@@ -149,7 +153,7 @@ impl InitializedGateGraph {
         self.update_lever(lever, false)
     }
     pub fn flip_lever(&mut self, lever: LeverHandle) {
-        let idx = self.lever_handles[lever.handle];
+        let idx = self.lever_handles.get()[lever.handle];
         self.state.set(idx, !self.state.get_state(idx));
         self.pending_updates.push(idx);
         self.tick();
@@ -178,7 +182,7 @@ impl InitializedGateGraph {
         self.run_until_stable(10).unwrap();
     }
     pub(super) fn get_output_handle(&self, handle: CircuitOutputHandle) -> &CircuitOutput {
-        &self.output_handles[handle.0]
+        &self.output_handles.get()[handle.0]
     }
     pub(super) fn value(&self, idx: GateIndex) -> bool {
         self.state.get_state(idx)
@@ -228,10 +232,11 @@ impl InitializedGateGraph {
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
         for (i, node) in self.nodes.iter().enumerate() {
-            let is_out = self.outputs.contains(&gi!(i));
+            let is_out = self.outputs.get().contains(&gi!(i));
             #[cfg(feature = "debug_gates")]
             let name = self
                 .names
+                .get()
                 .get(&gi!(i))
                 .map(|name| format!(":{}", name))
                 .unwrap_or("".to_string());
