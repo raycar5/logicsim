@@ -4,6 +4,7 @@ impl<T> Immutable<T> {
     pub fn new(i: T) -> Self {
         Self(i)
     }
+    #[inline(always)]
     pub fn get(&self) -> &T {
         &self.0
     }

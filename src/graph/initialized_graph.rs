@@ -4,9 +4,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
 pub struct InitializedGateGraph {
-    // TODO: The line below makes it slower, that is a bug in the compiler, report it.
-    //pub(super) nodes: Immutable<Vec<Gate>>,
-    pub(super) nodes: Vec<Gate>,
+    // Making node immutable makes the program slightly slower when the binary includes debug information.
+    pub(super) nodes: Immutable<Vec<Gate>>,
     pub(super) pending_updates: Vec<GateIndex>,
     pub(super) next_pending_updates: Vec<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
     pub(super) propagation_queue: VecDeque<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
@@ -41,12 +40,12 @@ impl InitializedGateGraph {
     // All unsafe invariants are checked in debug mode using debug_assert!().
     pub(super) fn tick_inner(&mut self) {
         // Check the State unsafe invariant once instead of on every call.
-        debug_assert!(self.nodes.len() < self.state.len());
+        debug_assert!(self.nodes.get().len() < self.state.len());
         while let Some(idx) = self.propagation_queue.pop_front() {
             // This is safe because the propagation queue gets filled by items coming from
             // nodes.iter() or levers, both of which are always in bounds.
-            debug_assert!(idx.idx < self.nodes.len());
-            let node = unsafe { self.nodes.get_unchecked(idx.idx) };
+            debug_assert!(idx.idx < self.nodes.get().len());
+            let node = unsafe { self.nodes.get().get_unchecked(idx.idx) };
 
             let new_state = match &node.ty {
                 On => true,
@@ -114,10 +113,7 @@ impl InitializedGateGraph {
             self.propagation_queue.push_back(*pending);
             self.tick_inner()
         }
-        self.pending_updates.extend(
-            self.next_pending_updates
-                .drain(0..self.next_pending_updates.len()),
-        )
+        std::mem::swap(&mut self.pending_updates, &mut self.next_pending_updates);
     }
     pub fn run_until_stable(&mut self, max: usize) -> Result<usize, &'static str> {
         for i in 0..max {
@@ -220,10 +216,10 @@ impl InitializedGateGraph {
         output
     }
     pub fn len(&self) -> usize {
-        self.nodes.len()
+        self.nodes.get().len()
     }
     pub fn is_empty(&self) -> bool {
-        self.nodes.len() == 0
+        self.nodes.get().len() == 0
     }
     pub fn dump_dot(&self, filename: &Path) {
         use petgraph::dot::{Config, Dot};
@@ -231,7 +227,7 @@ impl InitializedGateGraph {
         let mut f = std::fs::File::create(filename).unwrap();
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
-        for (i, node) in self.nodes.iter().enumerate() {
+        for (i, node) in self.nodes.get().iter().enumerate() {
             let is_out = self.outputs.get().contains(&gi!(i));
             #[cfg(feature = "debug_gates")]
             let name = self
@@ -255,7 +251,7 @@ impl InitializedGateGraph {
             };
             index.insert(i, graph.add_node(label));
         }
-        for (i, node) in self.nodes.iter().enumerate() {
+        for (i, node) in self.nodes.get().iter().enumerate() {
             graph.extend_with_edges(
                 node.dependencies
                     .iter()

@@ -288,7 +288,7 @@ impl GateGraphBuilder {
         let mut new_graph = InitializedGateGraph {
             #[cfg(feature = "debug_gates")]
             names: names.into(),
-            nodes,
+            nodes: nodes.into(),
             #[cfg(feature = "debug_gates")]
             probes: probes.into(),
             outputs: outputs.into(),
