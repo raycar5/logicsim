@@ -338,6 +338,7 @@ impl GateGraphBuilder {
     }
     fn optimize(&mut self) {
         self.run_optimization(const_propagation_pass, "const propagation");
+        self.run_optimization(not_deduplication_pass, "not deduplication");
         self.run_optimization(
             single_dependency_collapsing_pass,
             "single dependency collapsing",
@@ -345,8 +346,6 @@ impl GateGraphBuilder {
         self.run_optimization(dead_code_elimination_pass, "dead code elimination");
         self.run_optimization(global_value_numbering_pass, "global value numbering");
         self.run_optimization(equal_gate_merging_pass, "equal gate merging");
-        self.run_optimization(dead_code_elimination_pass, "dead code elimination");
-        self.run_optimization(not_deduplication_pass, "not deduplication");
         self.run_optimization(dependency_deduplication_pass, "dependency deduplication");
         self.run_optimization(const_propagation_pass, "const propagation");
     }

@@ -1,4 +1,7 @@
-use super::super::{graph_builder::GateGraphBuilder, types::*};
+use super::{
+    super::{graph_builder::GateGraphBuilder, types::*},
+    dead_code_elimination_pass,
+};
 
 // Merges Gates of the same type
 pub fn equal_gate_merging_pass(g: &mut GateGraphBuilder) {
@@ -43,4 +46,5 @@ pub fn equal_gate_merging_pass(g: &mut GateGraphBuilder) {
             work.push(idx)
         }
     }
+    dead_code_elimination_pass(g);
 }

@@ -1,4 +1,5 @@
 use super::super::{graph_builder::GateGraphBuilder, types::*};
+use super::dead_code_elimination_pass;
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 
@@ -8,19 +9,19 @@ type NumberMap = HashMap<GateIndex, ValueNumber>;
 type Expression = u64;
 fn lookup<I: Iterator<Item = ValueNumber>>(
     op: GateType,
-    lever_offset: u64,
+    op_hash_offset: u64,
     dep_nums: I,
     x: GateIndex,
     hash_table: &mut HashMap<Expression, GateIndex>,
 ) -> GateIndex {
-    let opop = if op.is_lever() || x.is_const() {
+    let op_hash = if op.is_lever() || x.is_const() {
         x.idx as u64
     } else {
-        op as u64 + lever_offset
+        op as u64 + op_hash_offset
     };
 
     let mut hasher = DefaultHasher::new();
-    hasher.write_u64(opop);
+    hasher.write_u64(op_hash);
     for dep in dep_nums {
         hasher.write_usize(dep.0.idx);
     }
@@ -38,7 +39,7 @@ pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
 
     let mut hash_table = HashMap::new();
     let mut visited = HashSet::new();
-    let lever_offset = g.nodes.len() as u64;
+    let op_hash_offset = g.nodes.len() as u64;
     loop {
         let mut done = true;
         let mut work: VecDeque<GateIndex> = g.lever_handles.iter().copied().collect();
@@ -51,6 +52,7 @@ pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
             } else {
                 visited.insert(x);
             }
+            // TODO ensure dependencies are sorted at all times.
             g.get_mut(x).dependencies.sort();
             let gate = g.get(x);
             let op = gate.ty;
@@ -59,7 +61,7 @@ pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
                 .iter()
                 .filter_map(|dep| numbers.get(&dep))
                 .copied();
-            let temp = lookup(op, lever_offset, dep_nums, x, &mut hash_table);
+            let temp = lookup(op, op_hash_offset, dep_nums, x, &mut hash_table);
             let nx = numbers.get(&x);
             if nx.copied() != Some(ValueNumber(temp)) {
                 done = false;
@@ -88,4 +90,6 @@ pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
         }
         g.get_mut(x).dependents = Default::default()
     }
+
+    dead_code_elimination_pass(g);
 }

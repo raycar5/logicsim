@@ -1,13 +1,19 @@
 {
     "editor.formatOnSave": true,
     "cSpell.words": [
+        "Deque",
+        "Hasher",
         "Nand",
         "TINYVEC",
         "Xnor",
+        "bimap",
+        "clippy",
         "dedup",
         "deps",
         "dpush",
         "indexmap",
+        "mkname",
+        "nums",
         "petgraph",
         "repr",
         "smallvec"
