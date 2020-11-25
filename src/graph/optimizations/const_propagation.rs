@@ -1,16 +1,13 @@
 use super::super::{graph_builder::GateGraphBuilder, types::*};
-use smallvec::SmallVec;
 use GateType::*;
 
 fn find_replacement(
     g: &mut GateGraphBuilder,
     idx: GateIndex,
     on: bool,
-    from_const: bool,
     short_circuit: GateIndex,
     negated: bool,
 ) -> Option<GateIndex> {
-    let idx_usize = idx.idx;
     let short_circuit_output = if negated {
         short_circuit
             .opposite_if_const()
@@ -22,28 +19,14 @@ fn find_replacement(
     if on == short_circuit.is_on() {
         return Some(short_circuit_output);
     }
-    let dependencies_len = g.nodes.get(idx_usize).unwrap().dependencies.len();
+
+    let dependencies_len = g.get(idx).dependencies.len();
     if dependencies_len == 1 {
-        if from_const {
-            return Some(short_circuit_output.opposite_if_const().unwrap());
-        }
-        if negated {
-            g.nodes.get_mut(idx_usize).unwrap().ty = Not;
-            return None;
-        }
-        return Some(g.nodes.get(idx_usize).unwrap().dependencies[0]);
+        return Some(short_circuit_output.opposite_if_const().unwrap());
     }
 
     let mut non_const_dependency = None;
-    for (i, dependency) in g
-        .nodes
-        .get(idx_usize)
-        .unwrap()
-        .dependencies
-        .iter()
-        .copied()
-        .enumerate()
-    {
+    for (i, dependency) in g.get(idx).dependencies.iter().copied().enumerate() {
         if dependency == short_circuit_output {
             return Some(short_circuit_output);
         }
@@ -54,9 +37,13 @@ fn find_replacement(
     if let Some((non_const_dependency, i)) = non_const_dependency {
         if dependencies_len == 2 {
             if negated {
-                let gate = g.nodes.get_mut(idx_usize).unwrap();
+                let removed_dep_idx = if i == 0 { 1 } else { 0 };
+                let removed_dep = g.get(idx).dependencies[removed_dep_idx];
+                g.get_mut(removed_dep).dependents.remove(&idx);
+
+                let gate = g.get_mut(idx);
                 gate.ty = Not;
-                gate.dependencies.remove(i + 1 % 2);
+                gate.dependencies.remove(removed_dep_idx);
                 return None;
             } else {
                 return Some(non_const_dependency);
@@ -69,37 +56,21 @@ fn find_replacement(
         Some(short_circuit_output.opposite_if_const().unwrap())
     }
 }
+
 fn find_replacement_xor(
     g: &mut GateGraphBuilder,
     idx: GateIndex,
     on: bool,
-    from_const: bool,
     negated: bool,
 ) -> Option<GateIndex> {
-    let idx_usize = idx.idx;
-    let dependencies_len = g.nodes.get(idx_usize).unwrap().dependencies.len();
+    let dependencies_len = g.get(idx).dependencies.len();
     if dependencies_len == 1 {
-        if from_const {
-            return Some(if negated ^ on { OFF } else { ON });
-        }
-        if negated ^ on {
-            g.nodes.get_mut(idx_usize).unwrap().ty = Not;
-            return None;
-        }
-        return Some(g.nodes.get(idx_usize).unwrap().dependencies[0]);
+        return Some(if negated ^ on { OFF } else { ON });
     }
 
     let mut non_const_dependency = None;
     let mut output = negated;
-    for (i, dependency) in g
-        .nodes
-        .get(idx_usize)
-        .unwrap()
-        .dependencies
-        .iter()
-        .copied()
-        .enumerate()
-    {
+    for (i, dependency) in g.get(idx).dependencies.iter().copied().enumerate() {
         if dependency.is_const() {
             output ^= dependency.is_on()
         } else {
@@ -109,9 +80,13 @@ fn find_replacement_xor(
     if let Some((non_const_dependency, i)) = non_const_dependency {
         if dependencies_len == 2 {
             if negated ^ on {
-                let gate = g.nodes.get_mut(idx_usize).unwrap();
+                let removed_dep_idx = if i == 0 { 1 } else { 0 };
+                let removed_dep = g.get(idx).dependencies[removed_dep_idx];
+                g.get_mut(removed_dep).dependents.remove(&idx);
+
+                let gate = g.get_mut(idx);
                 gate.ty = Not;
-                gate.dependencies.remove(i + 1 % 2);
+                gate.dependencies.remove(removed_dep_idx);
                 return None;
             } else {
                 return Some(non_const_dependency);
@@ -121,8 +96,7 @@ fn find_replacement_xor(
     }
     Some(if output { ON } else { OFF })
 }
-
-// Traverses the graph forwards from constants and nodes with a single input,
+// Traverses the graph forwards from constants and nodes with no inputs,
 // replacing them with simpler subgraphs.
 pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
     // Allocated outside main loop.
@@ -132,55 +106,37 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
     struct WorkItem {
         idx: GateIndex,
         on: bool,
-        from_const: bool,
     }
 
     // Propagate constants.
-    let off = g.nodes.get_mut(OFF.idx).unwrap();
+    let off = g.get_mut(OFF);
 
     let mut work: Vec<_> = off
         .dependents
         .drain(0..off.dependents.len())
-        .map(|idx| WorkItem {
-            idx,
-            on: false,
-            from_const: true,
-        })
+        .map(|idx| WorkItem { idx, on: false })
         .collect();
 
-    let on = g.nodes.get_mut(ON.idx).unwrap();
+    let on = g.get_mut(ON);
 
     work.extend(
         on.dependents
             .drain(0..on.dependents.len())
-            .map(|idx| WorkItem {
-                idx,
-                on: true,
-                from_const: true,
-            }),
+            .map(|idx| WorkItem { idx, on: true }),
     );
 
-    work.extend(g.nodes.iter().filter_map(|(idx, gate)| {
-        if gate.dependencies.len() == 1 && !gate.dependencies[0].is_const() {
-            return Some(WorkItem {
-                idx: gi!(idx),
-                on: gate.ty.init(),
-                from_const: false,
-            });
+    for (_, gate) in g.nodes.iter() {
+        if !gate.ty.is_lever() && gate.dependencies.is_empty() {
+            work.extend(
+                gate.dependents
+                    .iter()
+                    .copied()
+                    .map(|idx| WorkItem { idx, on: false }),
+            )
         }
-        None
-    }));
+    }
 
-    // Seems like a reasonable heuristic.
-    temp_dependents.reserve(work.len() / 2);
-    temp_dependencies.reserve(work.len() / 2);
-
-    while let Some(WorkItem {
-        idx,
-        on,
-        from_const,
-    }) = work.pop()
-    {
+    while let Some(WorkItem { idx, on }) = work.pop() {
         // Don't optimize out observable things.
         if g.is_observable(idx) {
             continue;
@@ -189,30 +145,23 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
             continue;
         }
 
-        let gate_type = &g.nodes.get(idx.idx).unwrap().ty;
+        let gate_type = &g.get(idx).ty;
         let replacement = match gate_type {
             Off | On | Lever => unreachable!("Off, On, and lever nodes have no dependencies"),
-            Not => {
-                if from_const {
-                    Some(if on { OFF } else { ON })
-                } else {
-                    None
-                }
-            }
-            And => find_replacement(g, idx, on, from_const, OFF, false),
-            Nand => find_replacement(g, idx, on, from_const, OFF, true),
-            Or => find_replacement(g, idx, on, from_const, ON, false),
-            Nor => find_replacement(g, idx, on, from_const, ON, true),
-            Xor => find_replacement_xor(g, idx, on, from_const, false),
-            Xnor => find_replacement_xor(g, idx, on, from_const, true),
+            Not => Some(if on { OFF } else { ON }),
+            And => find_replacement(g, idx, on, OFF, false),
+            Nand => find_replacement(g, idx, on, OFF, true),
+            Or => find_replacement(g, idx, on, ON, false),
+            Nor => find_replacement(g, idx, on, ON, true),
+            Xor => find_replacement_xor(g, idx, on, false),
+            Xnor => find_replacement_xor(g, idx, on, true),
         };
         if let Some(replacement) = replacement {
-            temp_dependents.extend(&g.nodes.get(idx.idx).unwrap().dependents);
-            temp_dependencies.extend_from_slice(&g.nodes.get(idx.idx).unwrap().dependencies);
+            temp_dependents.extend(&g.get(idx).dependents);
+            temp_dependencies.extend_from_slice(&g.get(idx).dependencies);
 
             for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
-                let dependency_dependents =
-                    &mut g.nodes.get_mut(dependency.idx).unwrap().dependents;
+                let dependency_dependents = &mut g.get_mut(dependency).dependents;
                 dependency_dependents.remove(&idx);
             }
 
@@ -220,31 +169,12 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
                 work.extend(temp_dependents.iter().copied().map(|idx| WorkItem {
                     idx,
                     on: replacement.is_on(),
-                    from_const: true,
                 }))
             }
 
             for dependent in temp_dependents.drain(0..temp_dependents.len()) {
                 // A gate can have the same dependency many times in different dependency indexes.
-                let positions = g
-                    .nodes
-                    .get(dependent.idx)
-                    .unwrap()
-                    .dependencies
-                    .iter()
-                    .enumerate()
-                    .fold(
-                        SmallVec::<[usize; 2]>::new(),
-                        |mut acc, (position, index)| {
-                            if *index == idx {
-                                acc.push(position)
-                            }
-                            acc
-                        },
-                    );
-                for position in positions {
-                    g.nodes.get_mut(dependent.idx).unwrap().dependencies[position] = replacement
-                }
+                g.get_mut(dependent).swap_dependency(idx, replacement);
                 g.nodes
                     .get_mut(replacement.idx)
                     .unwrap()

@@ -21,8 +21,13 @@ fn main() {
     let nclock = g.not1(clock.bit(), "nclock");
 
     const TEXT_OUTPUT: bool = false;
-    let rom_data = programs::multiply_rom(51, -2i8 as u8);
-    //let rom_data = programs::echo_rom("Heya world");
+    //let rom_data_u16 = programs::simple();
+    let rom_data_u16 = programs::multiply_rom(2, 4);
+    //let rom_data_u16 = programs::echo_rom("Heya world");
+    let mut rom_data = Vec::new();
+    for word in rom_data_u16 {
+        rom_data.extend_from_slice(&word.to_ne_bytes())
+    }
 
     let signals = ControlSignalsSet::new(g);
     let pc_output = counter(
@@ -99,20 +104,31 @@ fn main() {
         "areg_bus",
     );
     bus.connect(g, &address_reg_bus_output);
+    let ram_address_space_bit = address_reg_output[bits - 1];
+    let rom_address_space_bit = g.not1(ram_address_space_bit, "ram_address_bit");
 
-    let rom_output = rom(
-        g,
+    let rom_read_enable = g.and2(
         signals.rom_out().bit(),
-        &address_reg_output,
-        &rom_data,
-        "rom",
+        rom_address_space_bit,
+        "rom_read_enable",
     );
+    let rom_output = rom(g, rom_read_enable, &address_reg_output, &rom_data, "rom");
     bus.connect(g, &rom_output);
 
+    let ram_read_enable = g.and2(
+        signals.ram_out().bit(),
+        ram_address_space_bit,
+        "ram_read_enable",
+    );
+    let ram_write_enable = g.and2(
+        signals.ram_in().bit(),
+        ram_address_space_bit,
+        "ram_write_enable",
+    );
     let ram_output = ram(
         g,
-        signals.ram_out().bit(),
-        signals.ram_in().bit(),
+        ram_read_enable,
+        ram_write_enable,
         clock.bit(),
         reset.bit(),
         &address_reg_output[0..ram_address_space],
@@ -145,7 +161,7 @@ fn main() {
     let output = g.output(&rego_output, "output");
     //g.dump_dot(std::path::Path::new("computer.dot"));
     let g = &mut graph.init();
-    //g.dump_dot(std::path::Path::new("computer_optimized.dot"));
+    //g.dump_dot("computer_optimized.dot");
     g.run_until_stable(100).unwrap();
 
     // RESET
@@ -163,7 +179,7 @@ fn main() {
     let mut new_i8 = old_i8;
     let mut new_char = old_char;
 
-    for i in 0..1000000 {
+    for i in 0..10000 {
         g.flip_lever_stable(clock_lever);
 
         if TEXT_OUTPUT {

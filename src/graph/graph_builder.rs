@@ -3,18 +3,16 @@ use super::types::*;
 use super::InitializedGateGraph;
 use crate::data_structures::{Slab, State};
 use crate::gi;
-use indexmap::IndexSet;
 use smallvec::smallvec;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 
 use GateType::*;
 
 #[derive(Debug, Clone)]
 pub struct GateGraphBuilder {
-    pub(super) nodes: Slab<Gate<IndexSet<GateIndex>>>,
+    pub(super) nodes: Slab<BuildGate>,
     output_handles: Vec<CircuitOutput>,
-    lever_handles: Vec<GateIndex>,
+    pub(super) lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
     #[cfg(feature = "debug_gates")]
     names: HashMap<GateIndex, String>,
@@ -176,6 +174,15 @@ impl GateGraphBuilder {
         idx
     }
 
+    #[inline(always)]
+    pub(super) fn get(&self, idx: GateIndex) -> &BuildGate {
+        self.nodes.get(idx.idx).unwrap()
+    }
+    #[inline(always)]
+    pub(super) fn get_mut(&mut self, idx: GateIndex) -> &mut BuildGate {
+        self.nodes.get_mut(idx.idx).unwrap()
+    }
+
     pub fn init(mut self) -> InitializedGateGraph {
         self.optimize();
         self.init_unoptimized()
@@ -237,7 +244,12 @@ impl GateGraphBuilder {
         #[cfg(feature = "debug_gates")]
         let new_probes = probes
             .into_iter()
-            .map(|(idx, probe)| (index_map[&idx], probe))
+            .map(|(idx, mut probe)| {
+                for bit in &mut probe.bits {
+                    *bit = index_map[bit]
+                }
+                (index_map[&idx], probe)
+            })
             .collect();
 
         let new_output_handles = output_handles
@@ -303,7 +315,7 @@ impl GateGraphBuilder {
 
         for i in 0..new_graph.len() {
             let idx = gi!(i);
-            if idx != OFF && idx != ON && new_graph.state.get_updated(idx) {
+            if !idx.is_const() && new_graph.state.get_updated(idx) {
                 continue;
             }
             new_graph.propagation_queue.push(idx);
@@ -326,6 +338,13 @@ impl GateGraphBuilder {
     }
     fn optimize(&mut self) {
         self.run_optimization(const_propagation_pass, "const propagation");
+        self.run_optimization(
+            single_dependency_collapsing_pass,
+            "single dependency collapsing",
+        );
+        self.run_optimization(dead_code_elimination_pass, "dead code elimination");
+        self.run_optimization(global_value_numbering_pass, "global value numbering");
+        self.run_optimization(equal_gate_merging_pass, "equal gate merging");
         self.run_optimization(dead_code_elimination_pass, "dead code elimination");
         self.run_optimization(not_deduplication_pass, "not deduplication");
         self.run_optimization(dependency_deduplication_pass, "dependency deduplication");
@@ -335,6 +354,15 @@ impl GateGraphBuilder {
     // Output operations.
     pub(super) fn is_observable(&self, gate: GateIndex) -> bool {
         if self.outputs.contains(&gate) {
+            return true;
+        }
+        // is lever
+        if self
+            .nodes
+            .get(gate.idx)
+            .map(|g| g.ty.is_lever())
+            .unwrap_or(false)
+        {
             return true;
         }
         #[cfg(feature = "debug_gates")]
@@ -363,21 +391,24 @@ impl GateGraphBuilder {
     pub fn is_empty(&self) -> bool {
         self.nodes.len() == 0
     }
-    pub fn dump_dot(&self, filename: &Path) {
+    #[cfg(feature = "debug_gates")]
+    pub(super) fn name(&self, idx: GateIndex) -> Option<&str> {
+        self.names.get(&idx).map(String::as_str)
+    }
+    #[cfg(feature = "debug_gates")]
+    pub(super) fn full_name(&self, idx: GateIndex) -> Option<String> {
+        Some(format!("{}:{}", self.get(idx).ty, self.name(idx)?))
+    }
+    // TODO dry
+    pub fn dump_dot(&self, filename: &'static str) {
         use petgraph::dot::{Config, Dot};
         use std::io::Write;
         let mut f = std::fs::File::create(filename).unwrap();
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
-        for (i, node) in self.nodes.iter() {
+        for (i, _) in self.nodes.iter() {
             let is_out = self.outputs.contains(&gi!(i));
             #[cfg(feature = "debug_gates")]
-            let name = self
-                .names
-                .get(&gi!(i))
-                .map(|name| format!(":{}", name))
-                .unwrap_or("".to_string());
-
             #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {
                 format!("output:{}", node.ty)
@@ -386,9 +417,9 @@ impl GateGraphBuilder {
             };
             #[cfg(feature = "debug_gates")]
             let label = if is_out {
-                format!("O:{}{}", node.ty, name)
+                format!("O:{}", self.full_name(gi!(i)).unwrap_or_default())
             } else {
-                format!("{}{}", node.ty, name)
+                self.full_name(gi!(i)).unwrap_or_default()
             };
             index.insert(i, graph.add_node(label));
         }
@@ -437,14 +468,14 @@ mod tests {
         let mut graph = GateGraphBuilder::new();
         let g = &mut graph;
 
-        let set = g.lever("");
-        let reset = g.lever("");
+        let set = g.lever("set");
+        let reset = g.lever("reset");
 
-        let flip = g.or2(reset.bit(), OFF, "");
-        let q = g.not1(flip, "");
+        let flip = g.or2(reset.bit(), OFF, "flip");
+        let q = g.not1(flip, "q");
 
-        let flop = g.or2(set.bit(), q, "");
-        let nq = g.not1(flop, "");
+        let flop = g.or2(set.bit(), q, "flop");
+        let nq = g.not1(flop, "nq");
         g.d1(flip, nq);
 
         let output = g.output1(nq, "nq");
@@ -454,9 +485,7 @@ mod tests {
         for _ in 0..10 {
             assert_eq!(output.b0(g), true);
         }
-        println!("b4lever");
         g.update_lever(set, true);
-        println!("aftlever");
 
         g.run_until_stable(10).unwrap();
         assert_eq!(output.b0(g), false);

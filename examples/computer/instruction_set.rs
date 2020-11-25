@@ -1,6 +1,6 @@
 use num_enum::TryFromPrimitive;
-pub const OPCODE_LENGTH: u32 = 4;
-pub const DATA_LENGTH: u32 = 4;
+pub const OPCODE_LENGTH: u32 = 8;
+pub const DATA_LENGTH: u32 = 8;
 #[repr(u8)]
 #[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive)]
 pub enum InstructionType {
@@ -8,20 +8,14 @@ pub enum InstructionType {
     //NOP = 0,
     // Load register A from ram address.
     LDA,
-    // Load register A from rom address.
-    LOA,
     // Load register B from ram address.
     LDB,
-    // Load register B from rom address.
-    LOB,
     // Load register A with immediate value.
     LIA,
     // Load register B with immediate value.
     LIB,
     // Load register A with the contents of ram pointed to by register B.
     LDR,
-    // Load register A with the contents of rom pointed to by register B.
-    LOR,
     // Store register A at the address in register B.
     STR,
     // Store register A at the immediate address.
@@ -47,19 +41,18 @@ impl InstructionType {
         Instruction { ty: *self, data: 0 }
     }
 }
-impl Into<u8> for InstructionType {
-    fn into(self) -> u8 {
+impl Into<u16> for InstructionType {
+    fn into(self) -> u16 {
         self.with_0().into()
     }
 }
 
 pub struct Instruction {
     ty: InstructionType,
-    // Will get truncated to 4 bits.
     data: u8,
 }
-impl Into<u8> for Instruction {
-    fn into(self) -> u8 {
-        self.ty as u8 | ((self.data as u8) << OPCODE_LENGTH)
+impl Into<u16> for Instruction {
+    fn into(self) -> u16 {
+        self.ty as u16 | ((self.data as u16) << OPCODE_LENGTH)
     }
 }

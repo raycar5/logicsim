@@ -14,7 +14,7 @@ pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
         .filter_map(|(i, gate)| {
             let mut first_not = None;
             for dependent in &gate.dependents {
-                let dependent_gate = g.nodes.get(dependent.idx).unwrap();
+                let dependent_gate = g.get(*dependent);
                 match (first_not, dependent_gate.ty.is_not()) {
                     (Some(first_not), true) => {
                         return WorkItem {
@@ -41,17 +41,16 @@ pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
                 .copied()
                 .filter(|dependent| {
                     *dependent != first_not
+                        && *dependent != gate
                         && !g.is_observable(*dependent)
-                        && g.nodes.get(dependent.idx).unwrap().ty.is_not()
+                        && g.get(*dependent).ty.is_not()
                 }),
         );
         for not in nots.drain(0..nots.len()) {
-            temp_deps.extend(g.nodes.get(not.idx).unwrap().dependents.iter().copied());
+            temp_deps.extend(g.get(not).dependents.iter().copied());
 
             for dependent in temp_deps.drain(0..temp_deps.len()) {
-                for dependent_dependency in
-                    &mut g.nodes.get_mut(dependent.idx).unwrap().dependencies
-                {
+                for dependent_dependency in &mut g.get_mut(dependent).dependencies {
                     if *dependent_dependency == not {
                         *dependent_dependency = first_not
                     }
@@ -64,7 +63,7 @@ pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
             }
 
             g.nodes.remove(not.idx);
-            g.nodes.get_mut(gate.idx).unwrap().dependents.remove(&not);
+            g.get_mut(gate).dependents.remove(&not);
         }
     }
 }

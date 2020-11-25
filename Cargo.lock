@@ -474,12 +474,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "unchecked_unwrap"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4da3758203a1b51dde0aa9ab4b8d75761cda72b1a467a0a47205491cf0942e4e"
-
-[[package]]
 name = "unicode-segmentation"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -541,7 +535,6 @@ dependencies = [
  "strum",
  "strum_macros",
  "termion",
- "unchecked_unwrap",
 ]
 
 [[package]]

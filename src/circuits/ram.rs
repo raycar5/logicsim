@@ -72,7 +72,7 @@ mod tests {
         assert_eq!(out.u8(g), 0);
 
         g.set_lever(reset);
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
         g.reset_lever(reset);
         for a in 0..(1 << address.len()) - 1 {
             address.set(g, a);

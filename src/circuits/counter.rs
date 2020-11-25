@@ -92,7 +92,7 @@ mod tests {
         g.run_until_stable(100).unwrap();
 
         g.set_lever(reset);
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
         g.reset_lever(reset);
 
         assert_eq!(output.bx(g, 0), false);
@@ -102,20 +102,20 @@ mod tests {
         assert_eq!(output.bx(g, 0), false);
         assert_eq!(output.bx(g, 1), false);
 
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
         assert_eq!(output.bx(g, 0), false);
         assert_eq!(output.bx(g, 1), false);
 
-        g.set_lever(enable);
-        g.pulse_lever(clock);
+        g.set_lever_stable(enable);
+        g.pulse_lever_stable(clock);
         assert_eq!(output.bx(g, 0), true);
         assert_eq!(output.bx(g, 1), false);
 
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
         assert_eq!(output.bx(g, 0), false);
         assert_eq!(output.bx(g, 1), true);
 
-        g.pulse_lever(clock);
+        g.pulse_lever_stable(clock);
         assert_eq!(output.bx(g, 0), true);
         assert_eq!(output.bx(g, 1), true);
     }
@@ -186,9 +186,9 @@ mod tests {
         let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
-        g.set_lever(read);
+        g.set_lever_stable(read);
 
-        assert_eq!(output.u8(g), 0);
+        assert_eq!(output.u8(g), 255);
 
         for i in 0..10 {
             g.pulse_lever_stable(clock);

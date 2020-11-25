@@ -2,7 +2,6 @@ use super::types::*;
 use crate::data_structures::{DoubleStack, Immutable, State};
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
 
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
@@ -27,7 +26,7 @@ impl InitializedGateGraph {
         // Using a manual loop results in 2% less instructions.
         #[allow(clippy::needless_range_loop)]
         for i in 0..gates.len() {
-            // This is safe because in an InitializedGraph nodes.len() < state.len().
+            // This is safe because in an InitializedGraph nodes.len() <= state.len().
             let state = unsafe { self.state.get_state_very_unsafely(gates[i]) };
             if ty.accumulate(init, state) == short {
                 return short;
@@ -40,7 +39,7 @@ impl InitializedGateGraph {
     // All unsafe invariants are checked in debug mode using debug_assert!().
     pub(super) fn tick_inner(&mut self) {
         // Check the State unsafe invariant once instead of on every call.
-        debug_assert!(self.nodes.get().len() < self.state.len());
+        debug_assert!(self.nodes.get().len() <= self.state.len());
         while !self.propagation_queue.is_empty() {
             self.propagation_queue.swap();
             while let Some(idx) = self.propagation_queue.pop() {
@@ -52,7 +51,7 @@ impl InitializedGateGraph {
                 let new_state = match &node.ty {
                     On => true,
                     Off => false,
-                    // This is safe because in an InitializedGraph nodes.len() < state.len().
+                    // This is safe because in an InitializedGraph nodes.len() <= state.len().
                     Lever => unsafe { self.state.get_state_very_unsafely(idx) },
                     Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
                     Or | Nor | And | Nand | Xor | Xnor => {
@@ -66,7 +65,7 @@ impl InitializedGateGraph {
                             // Using a manual loop results in 2% less instructions.
                             #[allow(clippy::needless_range_loop)]
                             for i in 0..node.dependencies.len() {
-                                // This is safe because in an InitializedGraph nodes.len() < state.len().
+                                // This is safe because in an InitializedGraph nodes.len() <= state.len().
                                 let state = unsafe {
                                     self.state.get_state_very_unsafely(node.dependencies[i])
                                 };
@@ -80,14 +79,14 @@ impl InitializedGateGraph {
                         new_state
                     }
                 };
-                // This is safe because in an InitializedGraph nodes.len() < state.len().
+                // This is safe because in an InitializedGraph nodes.len() <= state.len().
                 if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
                     if old_state != new_state {
                         self.pending_updates.push(idx);
                     }
                     continue;
                 }
-                // This is safe because in an InitializedGraph nodes.len() < state.len().
+                // This is safe because in an InitializedGraph nodes.len() <= state.len().
                 let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
                 unsafe { self.state.set_very_unsafely(idx, new_state) };
 
@@ -224,7 +223,8 @@ impl InitializedGateGraph {
     pub fn is_empty(&self) -> bool {
         self.nodes.get().len() == 0
     }
-    pub fn dump_dot(&self, filename: &Path) {
+    // TODO Dry.
+    pub fn dump_dot(&self, filename: &'static str) {
         use petgraph::dot::{Config, Dot};
         use std::io::Write;
         let mut f = std::fs::File::create(filename).unwrap();
@@ -238,7 +238,7 @@ impl InitializedGateGraph {
                 .get()
                 .get(&gi!(i))
                 .map(|name| format!(":{}", name))
-                .unwrap_or("".to_string());
+                .unwrap_or_default();
 
             #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {

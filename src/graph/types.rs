@@ -46,9 +46,10 @@ impl GateIndex {
         }
     }
 }
-#[derive(Clone, Debug)]
+#[repr(u8)]
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub(super) enum GateType {
-    Off,
+    Off = 0,
     On,
     Lever,
     Xor,
@@ -86,6 +87,22 @@ impl GateType {
             Or | Nor | And | Nand => true,
             Not | On | Off | Lever => unreachable!(),
         }
+    }
+    #[inline(always)]
+    pub fn negated_version(&self) -> GateType {
+        match self {
+            Or => Nor,
+            Nor => Or,
+            And => Nand,
+            Nand => And,
+            Xor => Xnor,
+            Xnor => Xor,
+            On | Off | Not | Lever => unreachable!(),
+        }
+    }
+    #[inline(always)]
+    pub fn has_negated_version(&self) -> bool {
+        !matches!(self, On | Off | Not | Lever)
     }
     pub fn is_lever(&self) -> bool {
         matches!(self, Lever)
@@ -144,6 +161,15 @@ impl From<BuildGate> for InitializedGate {
             ty,
             dependencies,
             dependents: dependents.into_iter().collect(),
+        }
+    }
+}
+impl BuildGate {
+    pub(super) fn swap_dependency(&mut self, old_dep: GateIndex, new_dep: GateIndex) {
+        for d in &mut self.dependencies {
+            if old_dep == *d {
+                *d = new_dep
+            }
         }
     }
 }

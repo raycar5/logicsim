@@ -42,11 +42,11 @@ pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
     }
     while let Some(WorkItem { idx, duplicates }) = work.pop() {
         // Don't optimize out observable things.
-        let gate_dependencies = &mut g.nodes.get_mut(idx.idx).unwrap().dependencies;
+        let gate_dependencies = &mut g.get_mut(idx).dependencies;
         gate_dependencies.sort();
         gate_dependencies.dedup();
         for (duplicate, count) in duplicates {
-            let gate_type = &g.nodes.get(idx.idx).unwrap().ty;
+            let gate_type = &g.get(idx).ty;
             let action = match gate_type {
                 Off | On | Lever => {
                     unreachable!("Off, On, and lever nodes have no dependencies")
@@ -63,11 +63,7 @@ pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
                 }
             };
             if let Action::Keep2 = action {
-                g.nodes
-                    .get_mut(idx.idx)
-                    .unwrap()
-                    .dependencies
-                    .push(duplicate)
+                g.get_mut(idx).dependencies.push(duplicate)
             }
         }
     }

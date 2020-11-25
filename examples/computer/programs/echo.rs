@@ -1,11 +1,11 @@
 use super::super::instruction_set::InstructionType::*;
 
-pub fn echo_rom(text: &str) -> Vec<u8> {
+pub fn echo_rom(text: &str) -> Vec<u16> {
     let far_jmp = 8;
     let text_start = far_jmp + 2;
     let mut rom_data = vec![
         LIB.with_data(text_start).into(),
-        LOR.with_0().into(),
+        LDR.with_0().into(),
         JZ.with_data(far_jmp).into(),
         OUT.with_0().into(),
         LIA.with_data(1).into(),
@@ -15,6 +15,12 @@ pub fn echo_rom(text: &str) -> Vec<u8> {
         OUT.with_0().into(),
         JMP.with_data(far_jmp).into(),
     ];
-    rom_data.extend(text.chars().map(|c| c as u8));
+    rom_data.extend(text.chars().collect::<Vec<_>>().chunks(2).map(|c| {
+        if c.len() == 2 {
+            u16::from_ne_bytes([c[0] as u8, c[1] as u8])
+        } else {
+            c[0] as u16
+        }
+    }));
     rom_data
 }

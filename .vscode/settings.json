@@ -1,3 +1,15 @@
 {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "cSpell.words": [
+        "Nand",
+        "TINYVEC",
+        "Xnor",
+        "dedup",
+        "deps",
+        "dpush",
+        "indexmap",
+        "petgraph",
+        "repr",
+        "smallvec"
+    ]
 }

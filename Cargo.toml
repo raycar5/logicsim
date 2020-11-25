@@ -9,8 +9,8 @@ edition = "2018"
 [profile.release]
 debug = true
 [features]
-#default = ["debug_gates"]
-default = []
+default = ["debug_gates"]
+#default = []
 
 debug_gates = []
 
@@ -22,7 +22,6 @@ num_enum="0.5.1"
 num-integer = "0.1.44"
 petgraph = "0.5.1"
 indexmap = "1.6.0"
-unchecked_unwrap = "2.0.2"
 strum = "0.19.5"
 strum_macros = "0.19.4"
 concat-idents = "1.0.0"

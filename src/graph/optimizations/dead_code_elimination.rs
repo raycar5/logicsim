@@ -21,10 +21,10 @@ pub fn dead_code_elimination_pass(g: &mut GateGraphBuilder) {
         if g.is_observable(idx) {
             continue;
         }
-        temp_dependencies.extend_from_slice(&g.nodes.get(idx.idx).unwrap().dependencies);
+        temp_dependencies.extend_from_slice(&g.get(idx).dependencies);
 
         for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
-            let dependency_gate = g.nodes.get_mut(dependency.idx).unwrap();
+            let dependency_gate = g.get_mut(dependency);
             dependency_gate.dependents.remove(&idx);
             if dependency_gate.dependents.is_empty() {
                 work.push(dependency)

@@ -1,30 +1,28 @@
 use super::super::instruction_set::InstructionType::*;
 
-pub fn multiply_rom(a: u8, b: u8) -> Vec<u8> {
+pub fn multiply_rom(a: u8, b: u8) -> Vec<u16> {
     // LABELS
-    let number = 1;
-    let start = 6;
-    let end = number + 2;
-    let l00p = 13;
+    let number = 2;
+    let start = 12;
+    let end = number + 4;
+    let l00p = 22;
 
+    let ram_bit = 1 << 7;
     // RAM pointers.
-    let counter = 0;
-    let acc = 1;
-    let step = 2;
+    let counter = 0 | ram_bit;
+    let acc = 1 | ram_bit;
+    let step = 2 | ram_bit;
 
     vec![
         JMP.with_data(start).into(),
-        a,
-        b,
+        a as u16,
+        b as u16,
         LDA.with_data(acc).into(),
         OUT.into(),
-        JMP.with_data(end + 1).into(),
-        // Start program
-        LIB.with_data(number).into(), // LOAD number 1
-        LOR.into(),
+        JMP.with_data(end + 2).into(),
+        LDA.with_data(number).into(), // Program start, LOAD number 1
         STI.with_data(counter).into(),
-        LIB.with_data(number + 1).into(), // LOAD number 2
-        LOR.into(),
+        LDA.with_data(number + 2).into(), // LOAD number 2
         STI.with_data(acc).into(),
         STI.with_data(step).into(),
         LDA.with_data(counter).into(), // Loop start

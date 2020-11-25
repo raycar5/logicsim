@@ -1,3 +1,5 @@
+use std::iter::FromIterator;
+
 #[derive(Debug)]
 pub struct DoubleStack<T> {
     read_stack: Vec<T>,
@@ -47,5 +49,14 @@ impl<T: Copy> DoubleStack<T> {
 impl<T> Default for DoubleStack<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T> FromIterator<T> for DoubleStack<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        Self {
+            read_stack: Default::default(),
+            write_stack: iter.into_iter().collect(),
+        }
     }
 }
