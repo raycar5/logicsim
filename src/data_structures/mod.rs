@@ -6,5 +6,5 @@ mod state;
 pub use bititer::*;
 pub use double_stack::*;
 pub use immutable::*;
-pub use slab::Slab;
-pub use state::State;
+pub use slab::*;
+pub use state::*;

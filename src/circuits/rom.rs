@@ -6,7 +6,7 @@ fn mkname(name: String) -> String {
     format!("ROM:{}", name)
 }
 
-// Will fill missing addresses with zeros
+// Will fill missing addresses with zeros.
 pub fn rom<T: Copy + 'static + Sized, S: Into<String>>(
     g: &mut GateGraphBuilder,
     read: GateIndex,

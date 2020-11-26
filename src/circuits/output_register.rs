@@ -4,6 +4,8 @@ fn mkname(name: String) -> String {
     format!("OUTREG:{}", name)
 }
 
+// rust-analyzer makes this a non issue.
+#[allow(clippy::too_many_arguments)]
 pub fn output_register<S: Into<String>>(
     g: &mut GateGraphBuilder,
     input: &[GateIndex],

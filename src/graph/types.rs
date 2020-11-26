@@ -1,3 +1,5 @@
+use crate::data_structures::SlabIndex;
+
 use super::InitializedGateGraph;
 use indexmap::IndexSet;
 use smallvec::SmallVec;
@@ -7,6 +9,27 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Ord, PartialOrd)]
 pub struct GateIndex {
     pub idx: usize,
+}
+impl From<SlabIndex> for GateIndex {
+    fn from(i: SlabIndex) -> Self {
+        Self {
+            idx: i.i_actually_really_know_what_i_am_doing_and_i_want_the_inner_usize(),
+        }
+    }
+}
+impl Into<SlabIndex> for GateIndex {
+    fn into(self) -> SlabIndex {
+        SlabIndex::i_actually_really_know_what_i_am_doing_and_i_want_to_construct_from_usize(
+            self.idx,
+        )
+    }
+}
+impl Into<SlabIndex> for &GateIndex {
+    fn into(self) -> SlabIndex {
+        SlabIndex::i_actually_really_know_what_i_am_doing_and_i_want_to_construct_from_usize(
+            self.idx,
+        )
+    }
 }
 impl Display for GateIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

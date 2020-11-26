@@ -9,11 +9,12 @@ pub fn single_dependency_collapsing_pass(g: &mut GateGraphBuilder) {
         .nodes
         .iter()
         .filter_map(|(i, gate)| {
+            let idx = i.into();
             if gate.dependencies.len() == 1
-                && gate.dependencies[0] != gi!(i)
-                && !g.get(gate.dependencies[0]).dependencies.contains(&gi!(i))
+                && gate.dependencies[0] != idx
+                && !g.get(gate.dependencies[0]).dependencies.contains(&idx)
             {
-                Some(gi!(i))
+                Some(idx)
             } else {
                 None
             }
@@ -47,7 +48,7 @@ pub fn single_dependency_collapsing_pass(g: &mut GateGraphBuilder) {
                         g.get_mut(dependant).swap_dependency(idx, dependency);
                     }
                     g.get_mut(dependency).ty = g.get(dependency).ty.negated_version();
-                    g.nodes.remove(idx.idx);
+                    g.nodes.remove(idx.into());
                 // if it has more than one dependent then idx can become the negated version of dependency;
                 } else {
                     let dep_gate = g.get(dependency);
@@ -69,7 +70,7 @@ pub fn single_dependency_collapsing_pass(g: &mut GateGraphBuilder) {
                     g.get_mut(dependant).swap_dependency(idx, dependency);
                     g.get_mut(dependency).dependents.insert(dependant);
                 }
-                g.nodes.remove(idx.idx);
+                g.nodes.remove(idx.into());
             }
         }
     }

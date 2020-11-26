@@ -3,6 +3,8 @@ use crate::{graph::*, ram, wire, Bus, Wire, WordInput};
 fn mkname(name: String) -> String {
     format!("IOBUF:{}", name)
 }
+// rust-analyzer makes this a non issue.
+#[allow(clippy::too_many_arguments)]
 // Naive implementation, reading and writing has to be done in between clock cycles of the
 // circuit interacting with the IOBuffer.
 pub struct IOBuffer {
@@ -54,7 +56,7 @@ impl IOBuffer {
             reset.bit(),
             address_bus.bits(),
             io_bus.bits(),
-            name.clone(),
+            name,
         );
         io_bus.connect(g, &ram_output);
 
@@ -70,6 +72,8 @@ impl IOBuffer {
             reset,
         }
     }
+    // rust-analyzer makes this a non issue.
+    #[allow(clippy::too_many_arguments)]
     pub fn connect(
         &self,
         g: &mut GateGraphBuilder,

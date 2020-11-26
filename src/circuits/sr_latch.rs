@@ -14,7 +14,7 @@ pub fn sr_latch<S: Into<String>>(
 
     let q = g.nor2(r, OFF, name.clone());
 
-    let nq = g.nor2(s, q, name.clone());
+    let nq = g.nor2(s, q, name);
     g.d1(q, nq);
 
     q

@@ -223,23 +223,31 @@ impl InitializedGateGraph {
     pub fn is_empty(&self) -> bool {
         self.nodes.get().len() == 0
     }
-    // TODO Dry.
+
+    // Debug operations.
+    #[cfg(feature = "debug_gates")]
+    pub(super) fn name(&self, idx: GateIndex) -> Option<&str> {
+        self.names.get().get(&idx).map(String::as_str)
+    }
+    #[cfg(feature = "debug_gates")]
+    pub(super) fn full_name(&self, idx: GateIndex) -> Option<String> {
+        Some(format!(
+            "{}:{}",
+            self.nodes.get()[idx.idx].ty,
+            self.name(idx)?
+        ))
+    }
+
+    // TODO dry
     pub fn dump_dot(&self, filename: &'static str) {
         use petgraph::dot::{Config, Dot};
         use std::io::Write;
         let mut f = std::fs::File::create(filename).unwrap();
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
-        for (i, node) in self.nodes.get().iter().enumerate() {
+        for (i, _) in self.nodes.get().iter().enumerate() {
             let is_out = self.outputs.get().contains(&gi!(i));
             #[cfg(feature = "debug_gates")]
-            let name = self
-                .names
-                .get()
-                .get(&gi!(i))
-                .map(|name| format!(":{}", name))
-                .unwrap_or_default();
-
             #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {
                 format!("output:{}", node.ty)
@@ -248,9 +256,9 @@ impl InitializedGateGraph {
             };
             #[cfg(feature = "debug_gates")]
             let label = if is_out {
-                format!("O:{}{}", node.ty, name)
+                format!("O:{}", self.full_name(gi!(i)).unwrap_or_default())
             } else {
-                format!("{}{}", node.ty, name)
+                self.full_name(gi!(i)).unwrap_or_default()
             };
             index.insert(i, graph.add_node(label));
         }

@@ -18,7 +18,7 @@ pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
                 match (first_not, dependent_gate.ty.is_not()) {
                     (Some(first_not), true) => {
                         return WorkItem {
-                            gate: gi!(i),
+                            gate: i.into(),
                             first_not,
                         }
                         .into()
@@ -34,7 +34,7 @@ pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
     while let Some(WorkItem { gate, first_not }) = work.pop() {
         nots.extend(
             g.nodes
-                .get(gate.idx)
+                .get(gate.into())
                 .unwrap()
                 .dependents
                 .iter()
@@ -56,13 +56,13 @@ pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
                     }
                 }
                 g.nodes
-                    .get_mut(first_not.idx)
+                    .get_mut(first_not.into())
                     .unwrap()
                     .dependents
                     .insert(dependent);
             }
 
-            g.nodes.remove(not.idx);
+            g.nodes.remove(not.into());
             g.get_mut(gate).dependents.remove(&not);
         }
     }

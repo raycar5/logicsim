@@ -19,6 +19,7 @@
         "dpush",
         "indexmap",
         "mkname",
+        "namex",
         "nclock",
         "nums",
         "petgraph",

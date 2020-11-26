@@ -7,7 +7,7 @@ pub fn dead_code_elimination_pass(g: &mut GateGraphBuilder) {
         .nodes
         .iter()
         .filter_map(|(idx, gate)| {
-            let idx = gi!(idx);
+            let idx: GateIndex = idx.into();
             if !idx.is_const() && gate.dependents.is_empty() {
                 return Some(idx);
             }
@@ -30,6 +30,6 @@ pub fn dead_code_elimination_pass(g: &mut GateGraphBuilder) {
                 work.push(dependency)
             }
         }
-        g.nodes.remove(idx.idx);
+        g.nodes.remove(idx.into());
     }
 }

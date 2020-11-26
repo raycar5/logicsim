@@ -23,7 +23,7 @@ pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
                 *entry += 1
             }
 
-            let idx = gi!(idx);
+            let idx = idx.into();
             let duplicates: SmallVec<_> = dependency_multi_map
                 .into_iter()
                 .filter(|(_, count)| *count > 1)

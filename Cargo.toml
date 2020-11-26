@@ -10,7 +10,6 @@ edition = "2018"
 debug = true
 [features]
 default = ["debug_gates"]
-#default = []
 
 debug_gates = []
 
@@ -26,4 +25,9 @@ strum = "0.19.5"
 strum_macros = "0.19.4"
 concat-idents = "1.0.0"
 termion = "1.5.5"
+casey = "0.3.3"
 pretty-hex = "0.2.1"
+
+[env]
+CARGO_MAKE_KCOV_EXCLUDE_LINE = "unreachable,kcov-ignore"             
+CARGO_MAKE_KCOV_EXCLUDE_REGION = "kcov-ignore-start:kcov-ignore-end"

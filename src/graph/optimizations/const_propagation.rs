@@ -141,7 +141,7 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
         if g.is_observable(idx) {
             continue;
         }
-        if g.nodes.get(idx.idx).is_none() {
+        if g.nodes.get(idx.into()).is_none() {
             continue;
         }
 
@@ -176,13 +176,13 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
                 // A gate can have the same dependency many times in different dependency indexes.
                 g.get_mut(dependent).swap_dependency(idx, replacement);
                 g.nodes
-                    .get_mut(replacement.idx)
+                    .get_mut(replacement.into())
                     .unwrap()
                     .dependents
                     .insert(dependent);
             }
 
-            g.nodes.remove(idx.idx);
+            g.nodes.remove(idx.into());
         }
     }
 }

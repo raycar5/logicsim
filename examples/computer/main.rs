@@ -163,7 +163,7 @@ fn main() {
     let output_updated = g.output1(rego_output.0, "updated");
     //g.dump_dot(std::path::Path::new("computer.dot"));
     let g = &mut graph.init();
-    //g.dump_dot("computer_optimized.dot");
+    g.dump_dot("computer_optimized.dot");
     g.run_until_stable(100).unwrap();
 
     // RESET

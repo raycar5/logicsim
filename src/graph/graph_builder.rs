@@ -3,10 +3,50 @@ use super::types::*;
 use super::InitializedGateGraph;
 use crate::data_structures::{Slab, State};
 use crate::gi;
+use casey::pascal;
+use concat_idents::concat_idents;
 use smallvec::smallvec;
 use std::collections::{HashMap, HashSet};
 
 use GateType::*;
+
+macro_rules! gate_constructors {
+    ($name:ident,$($rest:ident),*) => {
+        gate_constructors!($name);
+        gate_constructors!($($rest),*);
+    };
+    ($name:ident) => {
+        pub fn $name<S: Into<String>>(&mut self, name: S) -> GateIndex {
+            let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![])).into();
+            self.create_gate(idx, std::iter::empty(), name);
+            idx
+        }
+
+        concat_idents!(name1 = $name, 1 {
+            pub fn name1<S: Into<String>>(&mut self, dep: GateIndex, name: S) -> GateIndex {
+                let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![dep])).into();
+                self.create_gate(idx, std::iter::once(dep), name);
+                idx
+            }
+        });
+
+        concat_idents!(name2 = $name, 2 {
+            pub fn name2<S: Into<String>>(&mut self, dep1: GateIndex, dep2: GateIndex, name: S) -> GateIndex {
+                let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![dep1, dep2])).into();
+                self.create_gate(idx, std::iter::once(dep1).chain(std::iter::once(dep2)), name);
+                idx
+            }
+        });
+
+        concat_idents!(namex = $name, x {
+            pub fn namex<S: Into<String>,I:Iterator<Item=GateIndex>+Clone>(&mut self, iter: I, name: S) -> GateIndex {
+                let idx = self.nodes.insert(Gate::new(pascal!($name), iter.clone().collect())).into();
+                self.create_gate(idx, iter, name);
+                idx
+            }
+        });
+    };
+}
 
 #[derive(Debug, Clone)]
 pub struct GateGraphBuilder {
@@ -56,7 +96,7 @@ impl GateGraphBuilder {
 
     // Dependency operations.
     pub fn dpush(&mut self, idx: GateIndex, new_dep: GateIndex) {
-        let gate = self.nodes.get_mut(idx.idx).unwrap();
+        let gate = self.nodes.get_mut(idx.into()).unwrap();
         match gate.ty {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
@@ -64,7 +104,7 @@ impl GateGraphBuilder {
             Or | Nor | And | Nand | Xor | Xnor | Not => {
                 gate.dependencies.push(new_dep);
                 self.nodes
-                    .get_mut(new_dep.idx)
+                    .get_mut(new_dep.into())
                     .unwrap()
                     .dependents
                     .insert(idx);
@@ -72,7 +112,7 @@ impl GateGraphBuilder {
         }
     }
     pub fn dx(&mut self, idx: GateIndex, new_dep: GateIndex, x: usize) {
-        let gate = self.nodes.get_mut(idx.idx).unwrap();
+        let gate = self.nodes.get_mut(idx.into()).unwrap();
         match gate.ty {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
@@ -87,12 +127,12 @@ impl GateGraphBuilder {
         let old_dep = std::mem::replace(&mut gate.dependencies[x], new_dep);
 
         self.nodes
-            .get_mut(old_dep.idx)
+            .get_mut(old_dep.into())
             .unwrap()
             .dependents
             .remove(&idx);
         self.nodes
-            .get_mut(new_dep.idx)
+            .get_mut(new_dep.into())
             .unwrap()
             .dependents
             .insert(idx);
@@ -106,81 +146,46 @@ impl GateGraphBuilder {
 
     // Gate operations.
     #[allow(unused_variables)]
-    fn create_gate<S: Into<String>>(&mut self, idx: GateIndex, deps: &[GateIndex], name: S) {
+    fn create_gate<S: Into<String>, I: Iterator<Item = GateIndex>>(
+        &mut self,
+        idx: GateIndex,
+        deps: I,
+        name: S,
+    ) {
         for dep in deps {
-            self.nodes.get_mut(dep.idx).unwrap().dependents.insert(idx);
+            self.nodes
+                .get_mut(dep.into())
+                .unwrap()
+                .dependents
+                .insert(idx);
         }
         #[cfg(feature = "debug_gates")]
         self.names.insert(idx, name.into());
     }
     pub fn lever<S: Into<String>>(&mut self, name: S) -> LeverHandle {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Lever, smallvec![])));
+        let idx = self.nodes.insert(Gate::new(Lever, smallvec![])).into();
         let handle = self.lever_handles.len();
         self.lever_handles.push(idx);
-        self.create_gate(idx, &[], name);
+        self.create_gate(idx, std::iter::empty(), name);
         LeverHandle { handle, idx }
     }
     pub fn not<S: Into<String>>(&mut self, name: S) -> GateIndex {
         self.not1(OFF, name)
     }
     pub fn not1<S: Into<String>>(&mut self, dep: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Not, smallvec![dep])));
-        self.create_gate(idx, &[dep], name);
+        let idx = self.nodes.insert(Gate::new(Not, smallvec![dep])).into();
+        self.create_gate(idx, std::iter::once(dep), name);
         idx
     }
-    pub fn or<S: Into<String>>(&mut self, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Or, smallvec![])));
-        self.create_gate(idx, &[], name);
-        idx
-    }
-    pub fn or2<S: Into<String>>(&mut self, d0: GateIndex, d1: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Or, smallvec![d0, d1])));
-        self.create_gate(idx, &[d0, d1], name);
-        idx
-    }
-    pub fn nor<S: Into<String>>(&mut self, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![])));
-        self.create_gate(idx, &[], name);
-        idx
-    }
-    pub fn nor1<S: Into<String>>(&mut self, d0: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![d0])));
-        self.create_gate(idx, &[d0], name);
-        idx
-    }
-    pub fn nor2<S: Into<String>>(&mut self, d0: GateIndex, d1: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Nor, smallvec![d0, d1])));
-        self.create_gate(idx, &[d0, d1], name);
-        idx
-    }
-    pub fn xor2<S: Into<String>>(&mut self, d0: GateIndex, d1: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Xor, smallvec![d0, d1])));
-        self.create_gate(idx, &[d0, d1], name);
-        idx
-    }
-    pub fn and<S: Into<String>>(&mut self, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(And, smallvec![])));
-        self.create_gate(idx, &[], name);
-        idx
-    }
-    pub fn and2<S: Into<String>>(&mut self, d0: GateIndex, d1: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(And, smallvec![d0, d1])));
-        self.create_gate(idx, &[d0, d1], name);
-        idx
-    }
-    pub fn nand2<S: Into<String>>(&mut self, d0: GateIndex, d1: GateIndex, name: S) -> GateIndex {
-        let idx = GateIndex::new(self.nodes.insert(Gate::new(Nand, smallvec![d0, d1])));
-        self.create_gate(idx, &[d0, d1], name);
-        idx
-    }
+    gate_constructors!(or, nor, and, nand, xor, xnor);
 
     #[inline(always)]
     pub(super) fn get(&self, idx: GateIndex) -> &BuildGate {
-        self.nodes.get(idx.idx).unwrap()
+        self.nodes.get(idx.into()).unwrap()
     }
     #[inline(always)]
     pub(super) fn get_mut(&mut self, idx: GateIndex) -> &mut BuildGate {
-        self.nodes.get_mut(idx.idx).unwrap()
+        self.nodes.get_mut(idx.into()).unwrap()
     }
 
     pub fn init(mut self) -> InitializedGateGraph {
@@ -218,13 +223,13 @@ impl GateGraphBuilder {
             };
         }
 
-        let mut index_map = HashMap::new();
+        let mut index_map = HashMap::<GateIndex, GateIndex>::new();
         let mut new_nodes = Vec::<InitializedGate>::new();
         index_map.reserve(nodes.len());
         new_nodes.reserve(nodes.len());
 
         for (new_index, (old_index, gate)) in nodes.into_iter().enumerate() {
-            index_map.insert(gi!(old_index), gi!(new_index));
+            index_map.insert(old_index.into(), gi!(new_index));
 
             new_nodes.push(gate.into());
         }
@@ -333,7 +338,7 @@ impl GateGraphBuilder {
             name,
             old_len,
             self.len(),
-            (old_len - self.len()) as f64 / old_len as f64 * 100f64
+            (old_len - self.len()) as f32 / old_len as f32 * 100.
         );
     }
     fn optimize(&mut self) {
@@ -355,13 +360,7 @@ impl GateGraphBuilder {
         if self.outputs.contains(&gate) {
             return true;
         }
-        // is lever
-        if self
-            .nodes
-            .get(gate.idx)
-            .map(|g| g.ty.is_lever())
-            .unwrap_or(false)
-        {
+        if self.get(gate).ty.is_lever() {
             return true;
         }
         #[cfg(feature = "debug_gates")]
@@ -390,6 +389,8 @@ impl GateGraphBuilder {
     pub fn is_empty(&self) -> bool {
         self.nodes.len() == 0
     }
+
+    // Debug operations.
     #[cfg(feature = "debug_gates")]
     pub(super) fn name(&self, idx: GateIndex) -> Option<&str> {
         self.names.get(&idx).map(String::as_str)
@@ -406,7 +407,7 @@ impl GateGraphBuilder {
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
         for (i, _) in self.nodes.iter() {
-            let is_out = self.outputs.contains(&gi!(i));
+            let is_out = self.outputs.contains(&i.into());
             #[cfg(feature = "debug_gates")]
             #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {
@@ -416,9 +417,9 @@ impl GateGraphBuilder {
             };
             #[cfg(feature = "debug_gates")]
             let label = if is_out {
-                format!("O:{}", self.full_name(gi!(i)).unwrap_or_default())
+                format!("O:{}", self.full_name(i.into()).unwrap_or_default())
             } else {
-                self.full_name(gi!(i)).unwrap_or_default()
+                self.full_name(i.into()).unwrap_or_default()
             };
             index.insert(i, graph.add_node(label));
         }
@@ -426,13 +427,12 @@ impl GateGraphBuilder {
             graph.extend_with_edges(
                 node.dependencies
                     .iter()
-                    .map(|dependency| (index[&dependency.idx], index[&i])),
+                    .map(|dependency| (index[&dependency.into()], index[&i])),
             );
         }
         write!(f, "{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel])).unwrap();
     }
 
-    // Debug operations.
     #[cfg(feature = "debug_gates")]
     pub fn probe<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) {
         let name = name.into();
