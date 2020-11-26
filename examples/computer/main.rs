@@ -16,14 +16,14 @@ fn main() {
     let mut bus = Bus::new(g, bits, "main_bus");
     wire!(g, clock);
     wire!(g, reset);
-    let clock_lever = clock.lever(g);
-    let reset_lever = reset.lever(g);
+    let clock_lever = clock.make_lever(g);
+    let reset_lever = reset.make_lever(g);
+    let ack_lever = g.lever("ack");
     let nclock = g.not1(clock.bit(), "nclock");
 
-    const TEXT_OUTPUT: bool = false;
-    //let rom_data_u16 = programs::simple();
-    let rom_data_u16 = programs::multiply_rom(2, 4);
-    //let rom_data_u16 = programs::echo_rom("Heya world");
+    const TEXT_OUTPUT: bool = true;
+    //let rom_data_u16 = programs::multiply_rom(2, 4);
+    let rom_data_u16 = programs::echo_rom("Hello world");
     let mut rom_data = Vec::new();
     for word in rom_data_u16 {
         rom_data.extend_from_slice(&word.to_ne_bytes())
@@ -137,13 +137,14 @@ fn main() {
     );
     bus.connect(g, &ram_output);
 
-    let rego_output = register(
+    let rego_output = output_register(
         g,
         bus.bits(),
         clock.bit(),
         signals.rego_in().bit(),
         ON,
         reset.bit(),
+        ack_lever.bit(),
         "rego",
     );
 
@@ -158,7 +159,8 @@ fn main() {
     );
 
     let mut t = std::time::Instant::now();
-    let output = g.output(&rego_output, "output");
+    let output = g.output(&rego_output.1, "output");
+    let output_updated = g.output1(rego_output.0, "updated");
     //g.dump_dot(std::path::Path::new("computer.dot"));
     let g = &mut graph.init();
     //g.dump_dot("computer_optimized.dot");
@@ -174,26 +176,23 @@ fn main() {
     t = std::time::Instant::now();
 
     let mut tmavg = 10000;
-    let mut old_i8 = 0;
-    let mut old_char = 0 as char;
-    let mut new_i8 = old_i8;
-    let mut new_char = old_char;
+    let mut should_ack = false;
 
     for i in 0..10000 {
         g.flip_lever_stable(clock_lever);
 
-        if TEXT_OUTPUT {
-            new_char = output.char(g);
-        } else {
-            new_i8 = output.i8(g);
+        if should_ack {
+            g.pulse_lever_stable(ack_lever);
+            should_ack = false
         }
-        if new_i8 != old_i8 {
-            old_i8 = new_i8;
-            println!("output:{}, {}ns/clock", old_i8, tmavg);
-        }
-        if new_char != old_char {
-            old_char = new_char;
-            println!("output:{}, {}ns/clock", old_char, tmavg);
+
+        if output_updated.b0(g) {
+            if TEXT_OUTPUT {
+                println!("output:{}, {}ns/clock", output.char(g), tmavg);
+            } else {
+                println!("output:{}, {}ns/clock", output.i8(g), tmavg);
+            }
+            should_ack = true;
         }
         if i % 2 == 1 {
             tmavg = (tmavg * (i - 1) + t.elapsed().as_nanos()) / i;

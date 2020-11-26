@@ -1,7 +1,7 @@
 use super::super::instruction_set::InstructionType::*;
 
 pub fn echo_rom(text: &str) -> Vec<u16> {
-    let far_jmp = 8;
+    let far_jmp = 16;
     let text_start = far_jmp + 2;
     let mut rom_data = vec![
         LIB.with_data(text_start).into(),
@@ -11,8 +11,7 @@ pub fn echo_rom(text: &str) -> Vec<u16> {
         LIA.with_data(1).into(),
         ADD.with_0().into(),
         SWP.with_0().into(),
-        JMP.with_data(1).into(),
-        OUT.with_0().into(),
+        JMP.with_data(2).into(),
         JMP.with_data(far_jmp).into(),
     ];
     rom_data.extend(text.chars().collect::<Vec<_>>().chunks(2).map(|c| {

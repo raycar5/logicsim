@@ -36,6 +36,9 @@ impl WordInput {
     pub fn set<T: Copy>(&self, g: &mut InitializedGateGraph, val: T) {
         g.update_levers(&self.levers, BitIter::new(val));
     }
+    pub fn reset(&self, g: &mut InitializedGateGraph) {
+        g.update_levers(&self.levers, (0..self.levers.len()).map(|_| false));
+    }
 
     pub fn bits(&self) -> SmallVec<[GateIndex; 8]> {
         self.levers.iter().map(|lever| lever.bit()).collect()

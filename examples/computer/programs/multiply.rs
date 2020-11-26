@@ -19,7 +19,7 @@ pub fn multiply_rom(a: u8, b: u8) -> Vec<u16> {
         b as u16,
         LDA.with_data(acc).into(),
         OUT.into(),
-        JMP.with_data(end + 2).into(),
+        JMP.with_data(end + 4).into(),
         LDA.with_data(number).into(), // Program start, LOAD number 1
         STI.with_data(counter).into(),
         LDA.with_data(number + 2).into(), // LOAD number 2

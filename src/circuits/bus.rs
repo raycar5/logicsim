@@ -16,7 +16,7 @@ impl Bus {
             bits: (0..n).map(|_| g.or(name.clone())).collect(),
         }
     }
-    pub fn connect(&mut self, g: &mut GateGraphBuilder, other: &[GateIndex]) {
+    pub fn connect(&self, g: &mut GateGraphBuilder, other: &[GateIndex]) {
         assert_eq!(
             self.bits.len(),
             other.len(),
@@ -24,10 +24,15 @@ impl Bus {
         );
         self.connect_some(g, other);
     }
-    pub fn connect_some(&mut self, g: &mut GateGraphBuilder, other: &[GateIndex]) {
+    pub fn connect_some(&self, g: &mut GateGraphBuilder, other: &[GateIndex]) {
         for (or, bit) in self.bits.iter().zip(other) {
             g.dpush(*or, *bit);
         }
+    }
+    // The signature is very intentional, one does not simply merge buses.
+    pub fn merge(&self, g: &mut GateGraphBuilder, other: Bus) -> Bus {
+        self.connect(g, other.bits());
+        self.clone()
     }
     pub fn len(&self) -> usize {
         self.bits.len()
@@ -49,5 +54,10 @@ impl Bus {
         for (bit, wire) in self.bits.iter().zip(other) {
             wire.connect(g, *bit)
         }
+    }
+}
+impl Into<Vec<GateIndex>> for Bus {
+    fn into(self) -> Vec<GateIndex> {
+        self.bits
     }
 }

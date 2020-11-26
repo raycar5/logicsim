@@ -3,9 +3,15 @@
     "cSpell.words": [
         "Deque",
         "Hasher",
+        "Heya",
+        "INREG",
+        "IOBUF",
         "Nand",
+        "OUTREG",
+        "SRLATCH",
         "TINYVEC",
         "Xnor",
+        "areg",
         "bimap",
         "clippy",
         "dedup",
@@ -13,9 +19,14 @@
         "dpush",
         "indexmap",
         "mkname",
+        "nclock",
         "nums",
         "petgraph",
+        "rega",
+        "regb",
+        "rego",
         "repr",
-        "smallvec"
+        "smallvec",
+        "tmavg"
     ]
 }

@@ -1,4 +1,4 @@
-use crate::graph::*;
+use crate::{graph::*, sr_latch};
 
 fn mkname(name: String) -> String {
     format!("DFLIPFLOP:{}", name)
@@ -18,13 +18,10 @@ pub fn d_flip_flop<S: Into<String>>(
     let clock = g.and2(clock, write, name.clone());
     let ninput = g.not1(input, name.clone());
 
-    let flip_and = g.and2(ninput, clock, name.clone());
-    let flop_and = g.and2(input, clock, name.clone());
+    let s_and = g.and2(input, clock, name.clone());
+    let r_and = g.and2(ninput, clock, name.clone());
 
-    let q = g.nor2(flip_and, OFF, name.clone());
-
-    let nq = g.nor2(flop_and, q, name.clone());
-    g.d1(q, nq);
+    let q = sr_latch(g, s_and, r_and, name.clone());
     g.and2(q, read, name)
 }
 

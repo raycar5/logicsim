@@ -3,6 +3,7 @@ use crate::graph::*;
 #[macro_export]
 macro_rules! wire {
     ($g:expr,$name:ident) => {
+        #[allow(unused_mut)]
         let mut $name: Wire = Wire::new($g, stringify!($name));
     };
 }
@@ -21,7 +22,7 @@ impl Wire {
             name,
         }
     }
-    pub fn lever(&mut self, g: &mut GateGraphBuilder) -> LeverHandle {
+    pub fn make_lever(&mut self, g: &mut GateGraphBuilder) -> LeverHandle {
         match self.lever {
             Some(lever) => lever,
             None => {
@@ -32,7 +33,10 @@ impl Wire {
             }
         }
     }
-    pub fn connect(&mut self, g: &mut GateGraphBuilder, other: GateIndex) {
+    pub fn lever(&self) -> Option<LeverHandle> {
+        self.lever
+    }
+    pub fn connect(&self, g: &mut GateGraphBuilder, other: GateIndex) {
         g.dpush(self.bit, other);
     }
     pub fn bit(&self) -> GateIndex {
