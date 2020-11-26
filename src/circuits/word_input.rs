@@ -33,7 +33,7 @@ impl WordInput {
     pub fn reset_bit(&self, g: &mut InitializedGateGraph, bit: usize) -> Option<()> {
         self.update_bit(g, bit, true)
     }
-    pub fn set<T: Copy>(&self, g: &mut InitializedGateGraph, val: T) {
+    pub fn set<T: Copy + Sized + 'static>(&self, g: &mut InitializedGateGraph, val: T) {
         g.update_levers(&self.levers, BitIter::new(val));
     }
     pub fn reset(&self, g: &mut InitializedGateGraph) {

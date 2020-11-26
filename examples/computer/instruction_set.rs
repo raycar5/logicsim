@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 pub const OPCODE_LENGTH: u32 = 8;
 pub const DATA_LENGTH: u32 = 8;
 #[repr(u8)]
-#[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive)]
+#[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive, EnumCount)]
 pub enum InstructionType {
     // Do nothing
     //NOP = 0,

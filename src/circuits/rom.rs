@@ -1,13 +1,13 @@
 use super::constant;
 use super::decoder::decoder;
-use crate::graph::*;
+use crate::{data_structures::BitIter, graph::*};
 
 fn mkname(name: String) -> String {
     format!("ROM:{}", name)
 }
 
 // Will fill missing addresses with zeros
-pub fn rom<T: Copy, S: Into<String>>(
+pub fn rom<T: Copy + 'static + Sized, S: Into<String>>(
     g: &mut GateGraphBuilder,
     read: GateIndex,
     address: &[GateIndex],
@@ -22,6 +22,11 @@ pub fn rom<T: Copy, S: Into<String>>(
     let out: Vec<GateIndex> = (0..word_length).map(|_| g.or(name.clone())).collect();
 
     for (word, d) in data.iter().zip(decoded.into_iter()) {
+        // Toss a coin to your const propagator every once in a while.
+        // He already has enough work.
+        if BitIter::new(*word).is_zero() {
+            continue;
+        }
         for (or, node) in out.iter().zip(constant(*word).into_iter()) {
             let and = g.and2(d, node, name.clone());
             g.dpush(*or, and);

@@ -23,7 +23,7 @@ pub struct BitIter {
     i: u8,
 }
 impl BitIter {
-    pub fn new<T: Copy>(item: T) -> Self {
+    pub fn new<T: Copy + Sized + 'static>(item: T) -> Self {
         let byte_size = std::mem::size_of::<T>();
         let bit_size = byte_size * 8;
 
@@ -34,13 +34,21 @@ impl BitIter {
         );
 
         let as_u8s: &[u8] =
-            // This is safe because any Copy item can be interpreted as a slice of bytes.
+            // This is safe because any Copy + Sized + 'static item can be interpreted as a slice of bytes.
             unsafe { std::slice::from_raw_parts(std::mem::transmute(&item), byte_size) };
 
         Self {
             item: SmallVec::from_slice(as_u8s),
             i: 0,
         }
+    }
+    pub fn is_zero(&self) -> bool {
+        for byte in &self.item {
+            if *byte != 0 {
+                return false;
+            }
+        }
+        true
     }
 }
 impl Iterator for BitIter {

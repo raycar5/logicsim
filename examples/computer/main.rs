@@ -13,7 +13,7 @@ fn main() {
     let bits = 8;
     let ram_address_space = 2;
 
-    let mut bus = Bus::new(g, bits, "main_bus");
+    let bus = Bus::new(g, bits, "main_bus");
     wire!(g, clock);
     wire!(g, reset);
     let clock_lever = clock.make_lever(g);

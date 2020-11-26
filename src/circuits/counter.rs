@@ -20,7 +20,7 @@ pub fn counter<S: Into<String>>(
     let name = mkname(name.into());
     let cin = enable;
 
-    let mut adder_input = Bus::new(g, input.len(), name.clone());
+    let adder_input = Bus::new(g, input.len(), name.clone());
     let adder_output = adder(
         g,
         cin,

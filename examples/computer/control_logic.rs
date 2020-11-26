@@ -1,5 +1,6 @@
 use super::instruction_set::{InstructionType, DATA_LENGTH, OPCODE_LENGTH};
 use std::convert::TryInto;
+use strum::EnumCount;
 use wires::*;
 
 control_signal_set!(
@@ -52,7 +53,7 @@ fn build_microinstructions() -> Vec<u32> {
     for instruction_step in 0..1 << INSTRUCTION_COUNTER_BITS {
         for rega_zero in 0..1 << IS_REGA_ZERO_BITS {
             let is_rega_zero = rega_zero == 1;
-            for opcode in 0..1 << OPCODE_LENGTH {
+            for opcode in 0..InstructionType::COUNT {
                 let input = instruction_step
                     | (rega_zero << IS_REGA_ZERO_OFFSET)
                     | (opcode << OPCODE_OFFSET);
@@ -173,7 +174,7 @@ fn microinstructions_from_instruction(
 pub fn setup_control_logic(
     g: &mut GateGraphBuilder,
     rega_zero: GateIndex,
-    mut bus: Bus,
+    bus: Bus,
     clock: GateIndex,
     reset: GateIndex,
     mut signals: ControlSignalsSet,
