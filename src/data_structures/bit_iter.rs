@@ -5,8 +5,7 @@ use smallvec::SmallVec;
 /// # Example
 ///
 /// ```
-/// use wires::data_structures::word_mask_64;
-///
+/// # use wires::data_structures::word_mask_64;
 /// let word_slice = [0u64, 1u64];
 /// let bit_index = 64;
 ///
@@ -32,8 +31,7 @@ pub fn word_mask_64(index: usize) -> (usize, u64) {
 /// # Example
 ///
 /// ```
-/// use wires::data_structures::word_mask_8;
-///
+/// # use wires::data_structures::word_mask_8;
 /// let word_slice = [0u8, 1u8];
 /// let bit_index = 8;
 ///
@@ -54,8 +52,7 @@ pub fn word_mask_8(index: usize) -> (usize, u8) {
 ///
 /// # Example
 /// ```
-/// use wires::data_structures::BitIter;
-///
+/// # use wires::data_structures::BitIter;
 /// let mut bits = BitIter::new(0b00100101u8);
 ///
 /// assert_eq!(bits.next().unwrap(), true);
@@ -106,8 +103,7 @@ impl BitIter {
     ///
     /// # Example
     /// ```
-    /// use wires::data_structures::BitIter;
-    ///
+    /// # use wires::data_structures::BitIter;
     /// let zero = BitIter::new(0u64);
     /// assert_eq!(zero.is_zero(), true);
     ///

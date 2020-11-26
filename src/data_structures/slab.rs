@@ -6,7 +6,7 @@ use std::{
 
 /// Transparent type that represents an index into a [Slab].
 ///
-/// Used to discourage accessing the [Slab] at arbitrary indexes.
+/// used to discourage accessing the [Slab] at arbitrary indexes.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct SlabIndex(usize);
@@ -34,9 +34,9 @@ impl Display for SlabIndex {
 /// Simple slab allocator. Stores items of the same type and can reuse removed indexes.
 ///
 /// # Example
-/// ```
-/// use wires::data_structures::Slab;
 ///
+/// ```
+/// # use wires::data_structures::Slab;
 /// let mut s = Slab::new();
 ///
 /// let index = s.insert(5);
@@ -52,12 +52,14 @@ pub struct Slab<T: Sized> {
     removed_indexes: IndexSet<SlabIndex>,
 }
 impl<T: Sized> Slab<T> {
+    /// Returns an empty [Slab].
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
             removed_indexes: IndexSet::new(),
         }
     }
+
     /// Inserts an item into the slab and returns it's index.
     ///
     /// Will reuse an empty index if one is available.
@@ -71,6 +73,7 @@ impl<T: Sized> Slab<T> {
             index
         }
     }
+
     /// Returns a mutable reference to the item at `index`.
     ///
     /// Returns [None] if `index` has been removed.
@@ -84,6 +87,7 @@ impl<T: Sized> Slab<T> {
         }
         None
     }
+
     /// Return a reference to the item at `index`.
     ///
     /// Returns [None] if `index` has been removed.
@@ -97,6 +101,7 @@ impl<T: Sized> Slab<T> {
         }
         None
     }
+
     /// Removes an item from the Slab and returns it.
     ///
     /// Returns [None] if `index` has been removed.
@@ -114,22 +119,26 @@ impl<T: Sized> Slab<T> {
         }
         None
     }
+
     /// Returns the number of items in the slab.
     ///
     /// This is different from the number of allocated slots in the slab, see [Slab::total_len]
     pub fn len(&self) -> usize {
         self.data.len() - self.removed_indexes.len()
     }
+
     /// Returns true if the number of items in the slab is 0.
     ///
     /// This is different from the number of allocated slots in the slab, see [Slab::total_len]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
     /// Returns the number of allocated slots in the slab, some of them could be empty.
     pub fn total_len(&self) -> usize {
         self.data.len()
     }
+
     /// Returns an iterator over pairs of ```(SlabIndex, [&T])```.
     pub fn iter(&self) -> Iter<T> {
         Iter {
@@ -143,7 +152,7 @@ impl<T: Sized> Slab<T> {
     /// # Safety
     /// This function is safe as long as `index` < [Slab::total_len()]
     /// and the item at `index` has not been removed.
-    /// This invariants are checked in debug mode.
+    /// Will panic in debug mode if the invariants are broken.
     ///
     /// Annoyingly long names discourage use and make you really think about what you are doing.
     pub unsafe fn get_very_unsafely(&self, index: SlabIndex) -> &T {

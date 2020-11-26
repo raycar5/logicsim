@@ -303,7 +303,9 @@ impl GateGraphBuilder {
             lever_handles,
         } = self.compacted();
 
-        let state = State::new(nodes.len());
+        let mut state = State::new(nodes.len());
+        state.set(OFF.idx, false);
+        state.set(ON.idx, true);
         let mut new_graph = InitializedGateGraph {
             #[cfg(feature = "debug_gates")]
             names: names.into(),
@@ -320,7 +322,7 @@ impl GateGraphBuilder {
 
         for i in 0..new_graph.len() {
             let idx = gi!(i);
-            if !idx.is_const() && new_graph.state.get_updated(idx) {
+            if !idx.is_const() && new_graph.state.get_updated(i) {
                 continue;
             }
             new_graph.propagation_queue.push(idx);

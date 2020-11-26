@@ -27,7 +27,7 @@ impl InitializedGateGraph {
         #[allow(clippy::needless_range_loop)]
         for i in 0..gates.len() {
             // This is safe because in an InitializedGraph nodes.len() <= state.len().
-            let state = unsafe { self.state.get_state_very_unsafely(gates[i]) };
+            let state = unsafe { self.state.get_state_very_unsafely(gates[i].idx) };
             if ty.accumulate(init, state) == short {
                 return short;
             }
@@ -39,21 +39,21 @@ impl InitializedGateGraph {
     // All unsafe invariants are checked in debug mode using debug_assert!().
     pub(super) fn tick_inner(&mut self) {
         // Check the State unsafe invariant once instead of on every call.
-        debug_assert!(self.nodes.get().len() <= self.state.len());
+        debug_assert!(self.nodes.len() <= self.state.len());
         while !self.propagation_queue.is_empty() {
             self.propagation_queue.swap();
             while let Some(idx) = self.propagation_queue.pop() {
                 // This is safe because the propagation queue gets filled by items coming from
                 // nodes.iter() or levers, both of which are always in bounds.
-                debug_assert!(idx.idx < self.nodes.get().len());
-                let node = unsafe { self.nodes.get().get_unchecked(idx.idx) };
+                debug_assert!(idx.idx < self.nodes.len());
+                let node = unsafe { self.nodes.get_unchecked(idx.idx) };
 
                 let new_state = match &node.ty {
                     On => true,
                     Off => false,
                     // This is safe because in an InitializedGraph nodes.len() <= state.len().
-                    Lever => unsafe { self.state.get_state_very_unsafely(idx) },
-                    Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0]) },
+                    Lever => unsafe { self.state.get_state_very_unsafely(idx.idx) },
+                    Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0].idx) },
                     Or | Nor | And | Nand | Xor | Xnor => {
                         let mut new_state = if node.dependencies.is_empty() {
                             false
@@ -67,7 +67,7 @@ impl InitializedGateGraph {
                             for i in 0..node.dependencies.len() {
                                 // This is safe because in an InitializedGraph nodes.len() <= state.len().
                                 let state = unsafe {
-                                    self.state.get_state_very_unsafely(node.dependencies[i])
+                                    self.state.get_state_very_unsafely(node.dependencies[i].idx)
                                 };
                                 result = node.ty.accumulate(result, state);
                             }
@@ -80,19 +80,20 @@ impl InitializedGateGraph {
                     }
                 };
                 // This is safe because in an InitializedGraph nodes.len() <= state.len().
-                if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx) } {
+                if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx.idx) }
+                {
                     if old_state != new_state {
                         self.pending_updates.push(idx);
                     }
                     continue;
                 }
                 // This is safe because in an InitializedGraph nodes.len() <= state.len().
-                let old_state = unsafe { self.state.get_state_very_unsafely(idx) };
-                unsafe { self.state.set_very_unsafely(idx, new_state) };
+                let old_state = unsafe { self.state.get_state_very_unsafely(idx.idx) };
+                unsafe { self.state.set_very_unsafely(idx.idx, new_state) };
 
                 #[cfg(feature = "debug_gates")]
                 if old_state != new_state {
-                    if let Some(probe) = self.probes.get().get(&idx) {
+                    if let Some(probe) = self.probes.get(&idx) {
                         match probe.bits.len() {
                             0 => {}
                             1 => println!("{}:{}", probe.name, new_state),
@@ -128,9 +129,9 @@ impl InitializedGateGraph {
     }
     // Input operations.
     fn update_lever_inner(&mut self, lever: LeverHandle, value: bool) {
-        let idx = self.lever_handles.get()[lever.handle];
-        if self.state.get_state(idx) != value {
-            self.state.set(idx, value);
+        let idx = self.lever_handles[lever.handle];
+        if self.state.get_state(idx.idx) != value {
+            self.state.set(idx.idx, value);
             self.pending_updates.push(idx);
         }
     }
@@ -151,8 +152,8 @@ impl InitializedGateGraph {
         self.update_lever(lever, false)
     }
     pub fn flip_lever(&mut self, lever: LeverHandle) {
-        let idx = self.lever_handles.get()[lever.handle];
-        self.state.set(idx, !self.state.get_state(idx));
+        let idx = self.lever_handles[lever.handle];
+        self.state.set(idx.idx, !self.state.get_state(idx.idx));
         self.pending_updates.push(idx);
         self.tick();
     }
@@ -180,10 +181,10 @@ impl InitializedGateGraph {
         self.run_until_stable(10).unwrap();
     }
     pub(super) fn get_output_handle(&self, handle: CircuitOutputHandle) -> &CircuitOutput {
-        &self.output_handles.get()[handle.0]
+        &self.output_handles[handle.0]
     }
     pub(super) fn value(&self, idx: GateIndex) -> bool {
-        self.state.get_state(idx)
+        self.state.get_state(idx.idx)
     }
     // Collect only first 8 bits from a larger bus.
     // Or only some bits from a smaller bus.
@@ -218,24 +219,20 @@ impl InitializedGateGraph {
         output
     }
     pub fn len(&self) -> usize {
-        self.nodes.get().len()
+        self.nodes.len()
     }
     pub fn is_empty(&self) -> bool {
-        self.nodes.get().len() == 0
+        self.nodes.len() == 0
     }
 
     // Debug operations.
     #[cfg(feature = "debug_gates")]
     pub(super) fn name(&self, idx: GateIndex) -> Option<&str> {
-        self.names.get().get(&idx).map(String::as_str)
+        self.names.get(&idx).map(String::as_str)
     }
     #[cfg(feature = "debug_gates")]
     pub(super) fn full_name(&self, idx: GateIndex) -> Option<String> {
-        Some(format!(
-            "{}:{}",
-            self.nodes.get()[idx.idx].ty,
-            self.name(idx)?
-        ))
+        Some(format!("{}:{}", self.nodes[idx.idx].ty, self.name(idx)?))
     }
 
     // TODO dry
@@ -245,8 +242,8 @@ impl InitializedGateGraph {
         let mut f = std::fs::File::create(filename).unwrap();
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
-        for (i, _) in self.nodes.get().iter().enumerate() {
-            let is_out = self.outputs.get().contains(&gi!(i));
+        for (i, _) in self.nodes.iter().enumerate() {
+            let is_out = self.outputs.contains(&gi!(i));
             #[cfg(feature = "debug_gates")]
             #[cfg(not(feature = "debug_gates"))]
             let label = if is_out {
@@ -262,7 +259,7 @@ impl InitializedGateGraph {
             };
             index.insert(i, graph.add_node(label));
         }
-        for (i, node) in self.nodes.get().iter().enumerate() {
+        for (i, node) in self.nodes.iter().enumerate() {
             graph.extend_with_edges(
                 node.dependencies
                     .iter()

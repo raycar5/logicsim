@@ -5,8 +5,7 @@ use std::iter::FromIterator;
 ///
 /// # Example
 /// ```
-/// use wires::data_structures::DoubleStack;
-///
+/// # use wires::data_structures::DoubleStack;
 /// let mut stacks = DoubleStack::new();
 ///
 /// stacks.push(1);
@@ -37,22 +36,26 @@ impl<T> DoubleStack<T> {
             write_stack: Default::default(),
         }
     }
+
     /// Pops an item from the end of the read stack and returns it.
     /// If the read stack is empty, returns None.
     #[inline(always)]
     pub fn pop(&mut self) -> Option<T> {
         self.read_stack.pop()
     }
+
     /// Pushes an item to the end of the write stack.
     #[inline(always)]
     pub fn push(&mut self, v: T) {
         self.write_stack.push(v);
     }
+
     /// Pushes all the items in the iterator to the end of the write stack.
     #[inline(always)]
     pub fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         self.write_stack.extend(iter)
     }
+
     /// Swaps the write and read stacks, after calling this method you can [pop](DoubleStack::pop)
     /// items that you had previously [pushed](DoubleStack::push).
     #[inline(always)]
@@ -63,10 +66,12 @@ impl<T> DoubleStack<T> {
         );
         std::mem::swap(&mut self.read_stack, &mut self.write_stack);
     }
+
     /// Returns the sum of the items in the read and write stacks.
     pub fn len(&self) -> usize {
         self.read_stack.len() + self.write_stack.len()
     }
+
     /// Returns true if both the read and write stacks are empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0

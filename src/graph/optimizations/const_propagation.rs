@@ -137,11 +137,10 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
     }
 
     while let Some(WorkItem { idx, on }) = work.pop() {
-        // Don't optimize out observable things.
-        if g.is_observable(idx) {
+        if g.nodes.get(idx.into()).is_none() {
             continue;
         }
-        if g.nodes.get(idx.into()).is_none() {
+        if g.is_observable(idx) {
             continue;
         }
 
