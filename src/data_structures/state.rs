@@ -169,7 +169,7 @@ impl State {
     /// Unsafe version of [State::get_state].
     ///
     /// # Safety
-    /// This function is safe if index < [State::len()].
+    /// This function is safe if `index` < [State::len()].
     /// Will panic in debug mode if the invariant is broken.
     ///
     /// Annoyingly long names discourage use and make you really think about what you are doing.
@@ -181,7 +181,7 @@ impl State {
     /// Unsafe version of [State::get_updated].
     ///
     /// # Safety
-    /// This function is safe if index < [State::len()].
+    /// This function is safe if `index` < [State::len()].
     /// Will panic in debug mode if the invariant is broken.
     ///
     /// Annoyingly long names discourage use and make you really think about what you are doing.
@@ -193,7 +193,7 @@ impl State {
     /// Unsafe version of [State::get_if_updated].
     ///
     /// # Safety
-    /// This function is safe if index < [State::len()].
+    /// This function is safe if `index` < [State::len()].
     /// Will panic in debug mode if the invariant is broken.
     ///
     /// Annoyingly long names discourage use and make you really think about what you are doing.
@@ -209,7 +209,7 @@ impl State {
     /// Unsafe version of [State::set].
     ///
     /// # Safety
-    /// This function is safe if index < [State::len()].
+    /// This function is safe if `index` < [State::len()].
     /// Will panic in debug mode if the invariant is broken.
     ///
     /// Annoyingly long names discourage use and make you really think about what you are doing.

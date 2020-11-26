@@ -150,7 +150,7 @@ impl<T: Sized> Slab<T> {
     /// Returns the item at index without performing bounds checking or checking if the slot contains initialized data.
     ///
     /// # Safety
-    /// This function is safe as long as `index` < [Slab::total_len()]
+    /// This function is safe if `index` < [Slab::total_len()]
     /// and the item at `index` has not been removed.
     /// Will panic in debug mode if the invariants are broken.
     ///
@@ -191,6 +191,7 @@ impl<T: Clone> Clone for Slab<T> {
     }
 }
 
+/// [IntoIterator] for [Slab]
 pub struct IntoIter<T> {
     slab: Slab<T>,
     i: SlabIndex,
@@ -230,6 +231,7 @@ impl<T> Iterator for IntoIter<T> {
     }
 }
 
+/// [Iterator] for [Slab]
 pub struct Iter<'a, T> {
     iter: std::iter::Enumerate<std::slice::Iter<'a, MaybeUninit<T>>>,
     removed_indexes: &'a IndexSet<SlabIndex>,

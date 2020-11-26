@@ -6,5 +6,5 @@ mod state;
 pub use bit_iter::*;
 pub use double_stack::*;
 pub use immutable::*;
-pub use slab::*;
+pub use slab::{Slab, SlabIndex};
 pub use state::*;
