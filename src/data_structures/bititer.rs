@@ -1,5 +1,20 @@
 use smallvec::SmallVec;
 
+/// Returns the index and mask necessary to access the bit at `index` in a ```&[u64]```.
+///
+/// # Example
+///
+/// ```
+/// use wires::data_structures::word_mask_64;
+///
+/// let word_slice = [0u64, 1u64];
+/// let bit_index = 64;
+///
+/// let (word_index, mask) = word_mask_64(bit_index);
+/// let bit_set = (word_slice[word_index] & mask) != 0;
+///
+/// assert_eq!(bit_set, true);
+/// ```
 // Method was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
 pub fn word_mask_64(index: usize) -> (usize, u64) {
     // This is safe because the divisor is a non zero constant.
@@ -11,25 +26,69 @@ pub fn word_mask_64(index: usize) -> (usize, u64) {
     };
     (word, mask)
 }
+
+/// Returns the index and mask necessary to access the bit at `index` in a ```&[u8]```.
+///
+/// # Example
+///
+/// ```
+/// use wires::data_structures::word_mask_8;
+///
+/// let word_slice = [0u8, 1u8];
+/// let bit_index = 8;
+///
+/// let (word_index, mask) = word_mask_8(bit_index);
+/// let bit_set = (word_slice[word_index] & mask) != 0;
+///
+/// assert_eq!(bit_set, true);
+/// ```
 pub fn word_mask_8(index: usize) -> (usize, u8) {
     let word = index / 8;
     let mask = 1 << (index % 8);
     (word, mask)
 }
 
-#[derive(Debug)]
+/// Data structure that allows for iterating over the native endian bits of any [Sized] + [Copy] + ['static](https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html) value.
+///
+/// If you are using this data structure with structs, make sure you use a [repr](https://doc.rust-lang.org/nomicon/other-reprs.html) that is defined.
+///
+/// # Example
+/// ```
+/// use wires::data_structures::BitIter;
+///
+/// let mut bits = BitIter::new(0b00100101u8);
+///
+/// assert_eq!(bits.next().unwrap(), true);
+/// assert_eq!(bits.next().unwrap(), false);
+/// assert_eq!(bits.next().unwrap(), true);
+/// assert_eq!(bits.next().unwrap(), false);
+/// assert_eq!(bits.next().unwrap(), false);
+/// assert_eq!(bits.next().unwrap(), true);
+/// assert_eq!(bits.next().unwrap(), false);
+/// assert_eq!(bits.next().unwrap(), false);
+///
+/// assert_eq!(bits.next(), None);
+///
+/// ```
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct BitIter {
     item: SmallVec<[u8; 8]>,
-    i: u8,
+    i: u16,
 }
 impl BitIter {
+    /// Returns a new [BitIter] which will iterate over the native endian bits of `item`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `item` is bigger than 65535 bits, if this ever happens to you, open an issue or a PR.
+    /// It is an arbitrary limit I have set to keep the [BitIter] struct small.
     pub fn new<T: Copy + Sized + 'static>(item: T) -> Self {
         let byte_size = std::mem::size_of::<T>();
         let bit_size = byte_size * 8;
 
         assert!(
-            bit_size <= std::u8::MAX as usize,
-            "Item too big to bit iterate, If this is ever hit change the i to u16, bit_size: {}",
+            bit_size <= std::u16::MAX as usize,
+            "Item too big to bit iterate, If this is ever hit change the i to u32, bit_size: {}",
             bit_size
         );
 
@@ -42,6 +101,19 @@ impl BitIter {
             i: 0,
         }
     }
+
+    /// Returns true if the value used to create the [BitIter] has all it's bits set to 0.
+    ///
+    /// # Example
+    /// ```
+    /// use wires::data_structures::BitIter;
+    ///
+    /// let zero = BitIter::new(0u64);
+    /// assert_eq!(zero.is_zero(), true);
+    ///
+    /// let non_zero = BitIter::new(32u128);
+    /// assert_eq!(non_zero.is_zero(), false);
+    /// ```
     pub fn is_zero(&self) -> bool {
         for byte in &self.item {
             if *byte != 0 {
@@ -51,10 +123,11 @@ impl BitIter {
         true
     }
 }
+
 impl Iterator for BitIter {
     type Item = bool;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.i == self.item.len() as u8 * 8 {
+        if self.i == self.item.len() as u16 * 8 {
             return None;
         }
 
@@ -81,6 +154,7 @@ mod tests {
         }
         assert_eq!(iterations, std::mem::size_of_val(&n) * 8);
     }
+
     #[test]
     fn test_u128() {
         let n = 0b110u128;
@@ -92,6 +166,7 @@ mod tests {
         }
         assert_eq!(iterations, std::mem::size_of_val(&n) * 8);
     }
+
     #[test]
     fn test_struct() {
         #[repr(C)]
@@ -108,5 +183,15 @@ mod tests {
             assert_eq!(set, *result.get(i).unwrap_or(&false));
         }
         assert_eq!(iterations, std::mem::size_of_val(&n) * 8);
+    }
+
+    #[test]
+    fn test_is_zero() {
+        assert_eq!(BitIter::new(8).is_zero(), false);
+        assert_eq!(BitIter::new(0u8).is_zero(), true);
+        assert_eq!(BitIter::new(0i16).is_zero(), true);
+        assert_eq!(BitIter::new(0f32).is_zero(), true);
+        assert_eq!(BitIter::new(12.2f64).is_zero(), false);
+        assert_eq!(BitIter::new(-0f64).is_zero(), false);
     }
 }

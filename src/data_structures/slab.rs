@@ -33,7 +33,7 @@ impl Display for SlabIndex {
 
 /// Simple slab allocator. Stores items of the same type and can reuse removed indexes.
 ///
-/// # Examples
+/// # Example
 /// ```
 /// use wires::data_structures::Slab;
 ///
@@ -137,12 +137,15 @@ impl<T: Sized> Slab<T> {
             removed_indexes: &self.removed_indexes,
         }
     }
+
     /// Returns the item at index without performing bounds checking or checking if the slot contains initialized data.
     ///
     /// # Safety
     /// This function is safe as long as `index` < [Slab::total_len()]
     /// and the item at `index` has not been removed.
     /// This invariants are checked in debug mode.
+    ///
+    /// Annoyingly long names discourage use and make you really think about what you are doing.
     pub unsafe fn get_very_unsafely(&self, index: SlabIndex) -> &T {
         debug_assert!(
             index.0 < self.data.len(),
