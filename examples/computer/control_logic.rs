@@ -1,7 +1,7 @@
 use super::instruction_set::{InstructionType, DATA_LENGTH, OPCODE_LENGTH};
+use logicsim::*;
 use std::convert::TryInto;
 use strum::EnumCount;
-use wires::*;
 
 control_signal_set!(
     ControlSignalsSet,

@@ -36,7 +36,7 @@ impl Display for SlabIndex {
 /// # Example
 ///
 /// ```
-/// # use wires::data_structures::Slab;
+/// # use logicsim::data_structures::Slab;
 /// let mut s = Slab::new();
 ///
 /// let index = s.insert(5);

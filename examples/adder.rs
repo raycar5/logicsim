@@ -1,4 +1,4 @@
-use wires::*;
+use logicsim::*;
 fn main() {
     let mut graph = GateGraphBuilder::new();
     let g = &mut graph;

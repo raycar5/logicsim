@@ -8,7 +8,7 @@ use unwrap::unwrap;
 /// State will allocate bits in multiples of 64.
 /// # Example
 /// ```
-/// # use wires::data_structures::State;
+/// # use logicsim::data_structures::State;
 /// let mut s = State::new(2);
 ///
 /// assert_eq!(s.len(), 64);
@@ -27,7 +27,7 @@ use unwrap::unwrap;
 /// Panics if you try to read or write to an index >= [State::len()]
 ///
 /// ```should_panic
-/// # use wires::data_structures::State;
+/// # use logicsim::data_structures::State;
 /// let mut s = State::new(2);
 ///
 /// s.get_state(64);
@@ -117,7 +117,7 @@ impl State {
 
     /// Manually marks the bit at `index` as updated, this is equivalent to:
     /// ```
-    /// # use wires::data_structures::State;
+    /// # use logicsim::data_structures::State;
     /// # let mut s = State::new(2);
     /// s.set(0,s.get_state(0));
     /// ```

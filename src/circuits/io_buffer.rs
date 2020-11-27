@@ -126,6 +126,7 @@ impl IOBuffer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_propagation;
 
     #[test]
     fn test_alone() {
@@ -203,7 +204,7 @@ mod tests {
         assert_eq!(output.u8(g), 0);
 
         address_input.set(g, 1);
-        g.assert_propagation(1);
+        assert_propagation!(g, 1);
         assert_eq!(output.u8(g), 3);
 
         // Write in circuit, read by buffer.

@@ -31,6 +31,7 @@ pub fn register<S: Into<String>>(
 mod tests {
     use super::super::WordInput;
     use super::*;
+    use crate::assert_propagation;
 
     #[test]
     fn test_register() {
@@ -83,7 +84,7 @@ mod tests {
         assert_eq!(out.u8(g), value);
 
         input.set(g, value ^ value);
-        g.assert_propagation(1);
+        assert_propagation!(g, 1);
         assert_eq!(out.u8(g), value);
 
         g.set_lever_stable(write);

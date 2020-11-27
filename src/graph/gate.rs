@@ -47,7 +47,7 @@ impl GateIndex {
     ///
     /// # Example
     /// ```
-    /// # use wires::{GateGraphBuilder,ON,OFF};
+    /// # use logicsim::{GateGraphBuilder,ON,OFF};
     /// let mut g = GateGraphBuilder::new();
     ///
     /// let and = g.and("and");
@@ -65,7 +65,7 @@ impl GateIndex {
     /// Returns Some(OFF) if `self` is ON, Some(ON) if `self` is off, None otherwise.
     /// # Example
     /// ```
-    /// # use wires::{GateGraphBuilder,ON,OFF};
+    /// # use logicsim::{GateGraphBuilder,ON,OFF};
     /// let mut g = GateGraphBuilder::new();
     ///
     /// let and = g.and("and");

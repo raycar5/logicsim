@@ -4,6 +4,7 @@ use crate::data_structures::{DoubleStack, Immutable, State};
 use concat_idents::concat_idents;
 use std::collections::{HashMap, HashSet};
 
+/// Generates the collect_type_lossy functions for [InitializedGateGraph].
 macro_rules! type_collectors {
     ($ty:ident,$($rest:ident),*) => {
         type_collectors!($ty);
@@ -11,7 +12,13 @@ macro_rules! type_collectors {
     };
     ($ty:ident) => {
         concat_idents!(collect_t = collect, _, $ty, _, lossy {
-            pub fn collect_t(&self, outputs: &[GateIndex]) -> $ty {
+            /// Returns the corresponding type by collecting its bits from `output`.
+            ///
+            /// If there are more bits in `outputs` than [size_of::\<type\>](std::mem::size_of),
+            /// the excess bits will be ignored.
+            ///
+            /// If there are less bits, the value will be 0 extended.
+            pub(super) fn collect_t(&self, outputs: &[GateIndex]) -> $ty {
                 let mut output = 0;
                 let mut mask = 1;
 
@@ -28,6 +35,11 @@ macro_rules! type_collectors {
         });
     };
 }
+
+/// Default number of ticks that methods ending with `_stable` will execute,
+/// before panicking.
+pub const DEFAULT_STABLE_MAX: usize = 50;
+
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
     pub(super) nodes: Immutable<Vec<InitializedGate>>,
@@ -42,8 +54,13 @@ pub struct InitializedGateGraph {
     #[cfg(feature = "debug_gates")]
     pub(super) probes: Immutable<HashMap<GateIndex, Probe>>,
 }
+
 use GateType::*;
 impl InitializedGateGraph {
+    /// Accumulates the new state for a gate from the state of its dependencies and short circuits out
+    /// if the short circuit state of a gate has been reached.
+    /// For example in and and nand gates, if a dependency is false, the state of the rest of the dependencies
+    /// doesn't change the state of the gate. And vice versa for or and nor gates.
     #[inline(always)]
     fn fold_short(&self, ty: &GateType, gates: &[GateIndex]) -> bool {
         let init = ty.init();
@@ -59,6 +76,10 @@ impl InitializedGateGraph {
         }
         init
     }
+
+    /// Propagates a change in state through the graph, loops are handled by keeping track of which gates' states have
+    /// already been updated and pushing the gate to the next tick if it gets visited twice.
+    /// See [State].
     // Main VERY HOT loop.
     // The unsafe code was added after careful consideration, profiling and measuring of the performance impact.
     // All unsafe invariants are checked in debug mode using debug_assert!().
@@ -133,24 +154,40 @@ impl InitializedGateGraph {
             }
         }
     }
-    pub fn tick(&mut self) {
+
+    /// Propagates pending state changes through the graph.
+    /// These could be levers that have been updated or loops.
+    /// Returns true if the graph has reached a stable state.
+    pub fn tick(&mut self) -> bool {
         while let Some(pending) = &self.pending_updates.pop() {
             self.state.tick();
             self.propagation_queue.push(*pending);
             self.tick_inner()
         }
         self.pending_updates.swap();
+        self.pending_updates.is_empty()
     }
+
+    /// Calls [InitializedGateGraph::tick] until it returns true a maximum of `max` times.
+    /// Returns Ok(number_of_iterations) if the graph stabilized.
+    /// Returns Err(&str) otherwise.
+    ///
+    /// Circuits might not stabilize if they have infinite loops like a chain of 3 not gates.
     pub fn run_until_stable(&mut self, max: usize) -> Result<usize, &'static str> {
-        for i in 0..max {
-            if self.pending_updates.is_empty() {
+        if self.pending_updates.is_empty() {
+            return Ok(0);
+        }
+
+        for i in 1..=max {
+            if self.tick() {
                 return Ok(i);
             }
-            self.tick();
         }
+
         Err("Your graph didn't stabilize")
     }
-    // Input operations.
+
+    /// Sets the state of `lever` to `value` and adds it to the pending updates if it's state has changed.
     fn update_lever_inner(&mut self, lever: LeverHandle, value: bool) {
         let idx = self.lever_handles[lever.handle];
         if self.state.get_state(idx.idx) != value {
@@ -158,60 +195,107 @@ impl InitializedGateGraph {
             self.pending_updates.push(idx);
         }
     }
+
+    /// Sets the state of all `levers` to their corresponding `values` and calls [InitializedGateGraph::tick] once.
     pub fn update_levers<I: Iterator<Item = bool>>(&mut self, levers: &[LeverHandle], values: I) {
         for (lever, value) in levers.iter().zip(values) {
             self.update_lever_inner(*lever, value);
         }
-        self.tick()
+        self.tick();
     }
+
+    /// Sets the state of `lever` to `value` and calls [InitializedGateGraph::tick] once.
     pub fn update_lever(&mut self, lever: LeverHandle, value: bool) {
         self.update_lever_inner(lever, value);
-        self.tick()
+        self.tick();
     }
+
+    /// Sets the state of `lever` to true and calls [InitializedGateGraph::tick] once.
     pub fn set_lever(&mut self, lever: LeverHandle) {
         self.update_lever(lever, true)
     }
+
+    /// Sets the state of `lever` to false and calls [InitializedGateGraph::tick] once.
     pub fn reset_lever(&mut self, lever: LeverHandle) {
         self.update_lever(lever, false)
     }
+
+    /// Sets the state of `lever` to the opposite of it's current state and calls [InitializedGateGraph::tick] once.
     pub fn flip_lever(&mut self, lever: LeverHandle) {
         let idx = self.lever_handles[lever.handle];
         self.state.set(idx.idx, !self.state.get_state(idx.idx));
         self.pending_updates.push(idx);
         self.tick();
     }
+
+    /// Sets the state of `lever` to true, calls [tick](InitializedGateGraph::tick),
+    /// then sets the state of `lever` to false and calls [tick](InitializedGateGraph::tick) again.
     pub fn pulse_lever(&mut self, lever: LeverHandle) {
         self.set_lever(lever);
         self.reset_lever(lever);
     }
 
+    /// Sets the state of `lever` to true and calls [run_until_stable](InitializedGateGraph::run_until_stable),
+    /// with [DEFAULT_STABLE_MAX].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the circuit does not stabilize
     pub fn set_lever_stable(&mut self, lever: LeverHandle) {
         self.set_lever(lever);
-        self.run_until_stable(10).unwrap();
+        self.run_until_stable(DEFAULT_STABLE_MAX).unwrap();
     }
+
+    /// Sets the state of `lever` to false and calls [run_until_stable](InitializedGateGraph::run_until_stable),
+    /// with [DEFAULT_STABLE_MAX].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the circuit does not stabilize
     pub fn reset_lever_stable(&mut self, lever: LeverHandle) {
         self.reset_lever(lever);
-        self.run_until_stable(10).unwrap();
+        self.run_until_stable(DEFAULT_STABLE_MAX).unwrap();
     }
+
+    /// Sets the state of `lever` to the opposite of it's current state and calls
+    /// [run_until_stable](InitializedGateGraph::run_until_stable), with [DEFAULT_STABLE_MAX].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the circuit does not stabilize
     pub fn flip_lever_stable(&mut self, lever: LeverHandle) {
         self.flip_lever(lever);
-        self.run_until_stable(10).unwrap();
+        self.run_until_stable(DEFAULT_STABLE_MAX).unwrap();
     }
+
+    /// Sets the state of `lever` to true, calls [run_until_stable(DEFAULT_STABLE_MAX)](InitializedGateGraph::run_until_stable),
+    /// then sets the state of `lever` to false and calls [run_until_stable(DEFAULT_STABLE_MAX)](InitializedGateGraph::run_until_stable) again.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the circuit does not stabilize
     pub fn pulse_lever_stable(&mut self, lever: LeverHandle) {
         self.set_lever(lever);
-        self.run_until_stable(10).unwrap();
+        self.run_until_stable(DEFAULT_STABLE_MAX).unwrap();
         self.reset_lever(lever);
-        self.run_until_stable(10).unwrap();
+        self.run_until_stable(DEFAULT_STABLE_MAX).unwrap();
     }
-    pub(super) fn get_output_handle(&self, handle: OutputHandle) -> &Output {
+
+    /// Returns an immutable reference to the [Output] represented by `handle`.
+    pub(super) fn get_output(&self, handle: OutputHandle) -> &Output {
         &self.output_handles[handle.0]
     }
-    pub(super) fn value(&self, idx: GateIndex) -> bool {
-        self.state.get_state(idx.idx)
+
+    /// Returns the state of `gate`.
+    pub(super) fn value(&self, gate: GateIndex) -> bool {
+        self.state.get_state(gate.idx)
     }
 
     type_collectors!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
+    /// Returns the corresponding type by collecting its bits from `outputs`.
+    /// If more bits are provided, the value is truncated.
+    /// If less bits are provided, the value is 0 extended.
     pub fn collect_char_lossy(&self, outputs: &[GateIndex]) -> char {
         self.collect_u8_lossy(outputs) as char
     }
@@ -269,33 +353,39 @@ impl InitializedGateGraph {
         }
         write!(f, "{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel])).unwrap();
     }
+}
 
-    // Test operations.
-    #[cfg(test)]
-    pub fn assert_propagation(&mut self, expected: usize) {
-        let actual = self
+/// Asserts that the graph stabilizes after exactly `expected` iterations.
+#[macro_export]
+macro_rules! assert_propagation {
+    ($ig:expr, $expected:expr) => {
+        let actual = $ig
             .run_until_stable(1000)
             .expect("Circuit didn't stabilize after 1000 ticks");
 
         assert!(
-            actual == expected,
+            actual == $expected,
             "Circuit stabilized after {} ticks, expected: {}",
             actual,
-            expected
+            $expected
         );
-    }
-    #[cfg(test)]
-    pub fn assert_propagation_range(&mut self, expected: std::ops::Range<usize>) {
+    };
+}
+
+/// Asserts that the graph stabilizes after a number of iterations inside the `expected` range.
+#[macro_export]
+macro_rules! assert_propagation_range {
+    ($ig:expr, $expected:expr) => {
         let actual = self
             .run_until_stable(1000)
             .expect("Circuit didn't stabilize after 1000 ticks");
 
         assert!(
-            expected.contains(&actual),
+            $expected.contains(&actual),
             "Circuit stabilized after {} ticks, which is outside the range: {}..{}",
             actual,
-            expected.start,
-            expected.end
+            $expected.start,
+            $expected.end
         );
-    }
+    };
 }

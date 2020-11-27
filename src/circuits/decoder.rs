@@ -38,6 +38,7 @@ pub fn decoder<S: Into<String>>(
 mod tests {
     use super::super::WordInput;
     use super::*;
+    use crate::assert_propagation;
 
     #[test]
     fn test_decoder() {
@@ -53,11 +54,11 @@ mod tests {
         assert_eq!(out.u8(g), 1);
 
         c.set_bit(g, 0);
-        g.assert_propagation(1);
+        assert_propagation!(g, 1);
         assert_eq!(out.u8(g), 2);
 
         c.set_bit(g, 1);
-        g.assert_propagation(1);
+        assert_propagation!(g, 1);
         assert_eq!(out.u8(g), 8);
     }
 }

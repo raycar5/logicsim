@@ -9,7 +9,7 @@ use std::ops::Deref;
 ///
 /// This does not compile:
 /// ```compile_fail
-/// # use wires::data_structures::Immutable;
+/// # use logicsim::data_structures::Immutable;
 /// let v = Immutable::new(vec![1,2]);
 ///
 /// v.push(2);
@@ -18,7 +18,7 @@ use std::ops::Deref;
 ///
 /// This does compile:
 /// ```
-/// # use wires::data_structures::Immutable;
+/// # use logicsim::data_structures::Immutable;
 /// let v = Immutable::new(vec![1,2]);
 ///
 /// assert_eq!(v[0], 1);

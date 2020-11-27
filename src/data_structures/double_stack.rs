@@ -5,7 +5,7 @@ use std::iter::FromIterator;
 ///
 /// # Example
 /// ```
-/// # use wires::data_structures::DoubleStack;
+/// # use logicsim::data_structures::DoubleStack;
 /// let mut stacks = DoubleStack::new();
 ///
 /// stacks.push(1);

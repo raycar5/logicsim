@@ -1,6 +1,6 @@
 mod instruction_set;
 mod programs;
-use wires::*;
+use logicsim::*;
 #[macro_use]
 extern crate strum_macros;
 #[macro_use]

@@ -43,6 +43,10 @@ macro_rules! gate_constructors {
         concat_idents!(name1 = $name, 1 {
             // TODO This doesn't work :(
             //#[doc=$doc1]
+            /// Returns the [GateIndex] of a new gate with 1 dependency.
+            ///
+            /// Providing a good name allows for a great debugging experience, you can disable the "debug_gates" feature
+            /// to slightly increase performance.
             pub fn name1<S: Into<String>>(&mut self, dep: GateIndex, name: S) -> GateIndex {
                 let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![dep])).into();
                 self.create_gate(idx, std::iter::once(dep), name);
@@ -53,6 +57,10 @@ macro_rules! gate_constructors {
         concat_idents!(name2 = $name, 2 {
             // TODO This doesn't work :(
             //#[doc=$doc2]
+            /// Returns the [GateIndex] of a new gate with 2 dependencies.
+            ///
+            /// Providing a good name allows for a great debugging experience, you can disable the "debug_gates" feature
+            /// to slightly increase performance.
             pub fn name2<S: Into<String>>(&mut self, dep1: GateIndex, dep2: GateIndex, name: S) -> GateIndex {
                 let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![dep1, dep2])).into();
                 self.create_gate(idx, std::iter::once(dep1).chain(std::iter::once(dep2)), name);
@@ -63,6 +71,10 @@ macro_rules! gate_constructors {
         concat_idents!(namex = $name, x {
             // TODO This doesn't work :(
             //#[doc=$docx]
+            /// Returns the [GateIndex] of a new gate with x dependencies. the dependencies are taken in order from `iter`.
+            ///
+            /// Providing a good name allows for a great debugging experience, you can disable the "debug_gates" feature
+            /// to slightly increase performance.
             pub fn namex<S: Into<String>,I:Iterator<Item=GateIndex>+Clone>(&mut self, iter: I, name: S) -> GateIndex {
                 let idx = self.nodes.insert(Gate::new(pascal!($name), iter.clone().collect())).into();
                 self.create_gate(idx, iter, name);
@@ -91,7 +103,7 @@ macro_rules! gate_constructors {
 /// # Examples
 /// Simple gates.
 /// ```
-/// # use wires::graph::{GateGraphBuilder,ON,OFF};
+/// # use logicsim::graph::{GateGraphBuilder,ON,OFF};
 /// let mut g = GateGraphBuilder::new();
 ///
 /// // Providing each gate with a string name allows for some very neat debugging.
@@ -114,7 +126,7 @@ macro_rules! gate_constructors {
 ///
 /// Levers!
 /// ```
-/// # use wires::graph::{GateGraphBuilder,ON,OFF};
+/// # use logicsim::graph::{GateGraphBuilder,ON,OFF};
 /// # let mut g = GateGraphBuilder::new();
 /// let l1 = g.lever("l1");
 /// let l2 = g.lever("l2");
@@ -145,7 +157,7 @@ macro_rules! gate_constructors {
 ///
 /// [SR Latch!](https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch)
 /// ```
-/// # use wires::graph::{GateGraphBuilder,ON,OFF};
+/// # use logicsim::graph::{GateGraphBuilder,ON,OFF};
 /// # let mut g = GateGraphBuilder::new();
 /// let r = g.lever("l1");
 /// let s = g.lever("l2");
@@ -201,6 +213,7 @@ struct CompactedGateGraph {
     #[cfg(feature = "debug_gates")]
     probes: HashMap<GateIndex, Probe>,
 }
+
 impl GateGraphBuilder {
     /// Returns a new [GateGraphBuilder] containing only [OFF] and [ON].
     pub fn new() -> GateGraphBuilder {
@@ -215,13 +228,22 @@ impl GateGraphBuilder {
             dependencies: smallvec![],
             dependents: Default::default(),
         });
+
+        #[cfg(feature = "debug_gates")]
+        let names = {
+            let mut names: HashMap<_, _> = Default::default();
+            names.insert(OFF, "OFF".into());
+            names.insert(ON, "ON".into());
+            names
+        };
+
         GateGraphBuilder {
             nodes,
             lever_handles: Default::default(),
             outputs: Default::default(),
             output_handles: Default::default(),
             #[cfg(feature = "debug_gates")]
-            names: Default::default(),
+            names,
             #[cfg(feature = "debug_gates")]
             probes: Default::default(),
         }
@@ -230,6 +252,7 @@ impl GateGraphBuilder {
     /// Appends `new_dep` to the list of dependencies of gate `target`.
     ///
     /// # Panics
+    ///
     /// Will panic if `target` can't have a variable number of dependencies.
     pub fn dpush(&mut self, target: GateIndex, new_dep: GateIndex) {
         let gate = self.get_mut(target.into());
@@ -609,7 +632,7 @@ impl GateGraphBuilder {
     ///
     /// "OUT:?GATE_TYPE" if the "debug_gates" feature is disabled.
     ///
-    /// OUT:? means if the gate is an output it will be "OUT:" and "" otherwise.
+    /// OUT:? means if the gate is an output it will be "OUT:" otherwise, it will be "".
     pub(super) fn full_name(&self, gate: GateIndex) -> String {
         let out = if self.outputs.contains(&gate) {
             "OUT:"

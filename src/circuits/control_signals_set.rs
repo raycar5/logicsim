@@ -5,16 +5,16 @@ macro_rules! count_arguments {
         1
     };
     ($x:ident, $($rest:ident),+) => {
-        1 + wires::count_arguments!($($rest),+)
+        1 + logicsim::count_arguments!($($rest),+)
     };
 }
 #[macro_export]
 macro_rules! generate_signal_getters {
     ($signal:ident, $($rest:ident),+) => {
-        wires::generate_signal_getters!(0, $signal, $($rest),+);
+        logicsim::generate_signal_getters!(0, $signal, $($rest),+);
     };
     ($n:expr, $signal:ident) => {
-        pub fn $signal(&self) -> &wires::Wire {
+        pub fn $signal(&self) -> &logicsim::Wire {
             &self.signals[$n]
         }
         __concat_idents!(signal_index = $signal, _, index {
@@ -24,18 +24,18 @@ macro_rules! generate_signal_getters {
         });
     };
     ($n:expr, $signal:ident, $($rest:ident),+) => {
-        wires::generate_signal_getters!($n, $signal);
-        wires::generate_signal_getters!(1+$n, $($rest),+);
+        logicsim::generate_signal_getters!($n, $signal);
+        logicsim::generate_signal_getters!(1+$n, $($rest),+);
     };
 }
 #[macro_export]
 macro_rules! control_signal_set {
     ($name:ident, $($signals:ident),+) => {
-        control_signal_set!(wires::count_arguments!($($signals),+),$name,$($signals),+);
+        control_signal_set!(logicsim::count_arguments!($($signals),+),$name,$($signals),+);
     };
     ($n:expr, $name:ident, $($signals:ident),+) => {
         pub struct $name {
-            signals: [wires::Wire; $n],
+            signals: [logicsim::Wire; $n],
         }
 
         // Sorry for polluting your namespace.
@@ -43,17 +43,17 @@ macro_rules! control_signal_set {
 
         #[allow(dead_code)]
         impl $name {
-            pub fn new(g:&mut wires::GateGraphBuilder) -> Self {
+            pub fn new(g:&mut logicsim::GateGraphBuilder) -> Self {
                 use std::mem::MaybeUninit;
                 use std::mem::transmute;
                 // I wish there was a safer way.
                 // This is safe because I initialize the memory immediately afterwards.
                 // https://stackoverflow.com/questions/36258417/using-a-macro-to-initialize-a-big-array-of-non-copy-elements
                 // https://doc.rust-lang.org/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
-                let mut signals: [MaybeUninit<wires::Wire>;$n] = unsafe { MaybeUninit::uninit().assume_init() };
+                let mut signals: [MaybeUninit<logicsim::Wire>;$n] = unsafe { MaybeUninit::uninit().assume_init() };
                 for elem in &mut signals[..] {
                     // TODO per wire names.
-                    *elem = MaybeUninit::new(wires::Wire::new(g,stringify!($name)));
+                    *elem = MaybeUninit::new(logicsim::Wire::new(g,stringify!($name)));
                 }
                 Self {
                     signals: unsafe{ transmute(signals) }
@@ -62,12 +62,12 @@ macro_rules! control_signal_set {
             pub fn len() -> usize {
                 $n
             }
-            pub fn connect(&mut self, g: &mut wires::GateGraphBuilder, input: &[wires::GateIndex; $n]) {
+            pub fn connect(&mut self, g: &mut logicsim::GateGraphBuilder, input: &[logicsim::GateIndex; $n]) {
                 for (signal, input) in self.signals.iter_mut().zip(input) {
                     signal.connect(g, *input)
                 }
             }
-            wires::generate_signal_getters!($($signals),+);
+            logicsim::generate_signal_getters!($($signals),+);
         }
     };
 }
@@ -79,7 +79,7 @@ macro_rules! signals_to_bits {
     ($signal_set:ty, $($signals:ident),+) => {
         {
             use concat_idents::concat_idents;
-            wires::signals_to_bits!(0, $signal_set, $($signals),+)
+            logicsim::signals_to_bits!(0, $signal_set, $($signals),+)
         }
     };
     ($bits:expr, $signal_set:ty, $signal:ident) => {
@@ -88,14 +88,14 @@ macro_rules! signals_to_bits {
         });
     };
     ($bits:expr, $signal_set:ty, $signal:ident, $($rest:ident),+) => {
-        wires::signals_to_bits!(wires::signals_to_bits!($bits,$signal_set, $signal), $signal_set, $($rest),+);
+        logicsim::signals_to_bits!(logicsim::signals_to_bits!($bits,$signal_set, $signal), $signal_set, $($rest),+);
     };
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as wires;
+    use crate as logicsim;
 
     control_signal_set!(TestSignals, s1, s2, s3);
 

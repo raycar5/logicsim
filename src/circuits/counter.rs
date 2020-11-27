@@ -62,6 +62,7 @@ pub fn counter<S: Into<String>>(
 mod tests {
     use super::super::constant;
     use super::*;
+    use crate::assert_propagation;
 
     #[test]
     fn test_counter_counts() {
@@ -153,7 +154,7 @@ mod tests {
         g.set_lever(write);
         g.pulse_lever_stable(clock);
         g.reset_lever(write);
-        g.assert_propagation(2);
+        assert_propagation!(g, 2);
         assert_eq!(output.u8(g), val);
 
         g.pulse_lever_stable(clock);
@@ -198,7 +199,7 @@ mod tests {
         g.set_lever(reset);
         g.pulse_lever_stable(clock);
 
-        g.assert_propagation(0);
+        assert_propagation!(g, 0);
         assert_eq!(output.u8(g), 0);
     }
 }

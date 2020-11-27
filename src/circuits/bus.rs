@@ -49,7 +49,7 @@ impl Bus {
     pub fn b0(&self) -> GateIndex {
         self.bits[0]
     }
-    pub fn split_wires(&self, g: &mut GateGraphBuilder, other: &mut [Wire]) {
+    pub fn split_logicsim(&self, g: &mut GateGraphBuilder, other: &mut [Wire]) {
         assert_eq!(self.len(), other.len());
         for (bit, wire) in self.bits.iter().zip(other) {
             wire.connect(g, *bit)
