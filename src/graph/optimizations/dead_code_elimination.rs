@@ -17,7 +17,6 @@ pub fn dead_code_elimination_pass(g: &mut GateGraphBuilder) {
     temp_dependencies.reserve(work.len());
 
     while let Some(idx) = work.pop() {
-        // Don't optimize out observable things.
         if g.is_observable(idx) {
             continue;
         }
@@ -25,7 +24,9 @@ pub fn dead_code_elimination_pass(g: &mut GateGraphBuilder) {
 
         for dependency in temp_dependencies.drain(0..temp_dependencies.len()) {
             let dependency_gate = g.get_mut(dependency);
+
             dependency_gate.dependents.remove(&idx);
+
             if dependency_gate.dependents.is_empty() {
                 work.push(dependency)
             }

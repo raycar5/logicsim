@@ -3,9 +3,9 @@ use smallvec::SmallVec;
 use std::collections::HashMap;
 use GateType::*;
 
-// Removes duplicate dependencies from most gates
-// If the gate is an Xor or Xnor it keeps 1 if there is an odd number of copies
-// or 2 if there is an even number of copies.
+/// Removes duplicate dependencies from gates.
+/// If the gate is an Xor or Xnor it keeps 1 if there are an odd number of copies
+/// or 2 if there are an even number of copies.
 pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
     struct WorkItem {
         idx: GateIndex,
@@ -40,8 +40,8 @@ pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
         Keep1,
         Keep2,
     }
+    use Action::*;
     while let Some(WorkItem { idx, duplicates }) = work.pop() {
-        // Don't optimize out observable things.
         let gate_dependencies = &mut g.get_mut(idx).dependencies;
         gate_dependencies.sort();
         gate_dependencies.dedup();
@@ -53,16 +53,16 @@ pub fn dependency_deduplication_pass(g: &mut GateGraphBuilder) {
                 }
                 Not => unreachable!("Not gates only have 1 dependency"),
 
-                And | Nand | Or | Nor => Action::Keep1,
+                And | Nand | Or | Nor => Keep1,
                 Xor | Xnor => {
                     if count % 2 == 0 {
-                        Action::Keep2
+                        Keep2
                     } else {
-                        Action::Keep1
+                        Keep1
                     }
                 }
             };
-            if let Action::Keep2 = action {
+            if let Keep2 = action {
                 g.get_mut(idx).dependencies.push(duplicate)
             }
         }

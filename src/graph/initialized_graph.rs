@@ -1,14 +1,39 @@
 use super::gate::*;
 use super::handles::*;
 use crate::data_structures::{DoubleStack, Immutable, State};
+use concat_idents::concat_idents;
 use std::collections::{HashMap, HashSet};
 
+macro_rules! type_collectors {
+    ($ty:ident,$($rest:ident),*) => {
+        type_collectors!($ty);
+        type_collectors!($($rest),*);
+    };
+    ($ty:ident) => {
+        concat_idents!(collect_t = collect, _, $ty, _, lossy {
+            pub fn collect_t(&self, outputs: &[GateIndex]) -> $ty {
+                let mut output = 0;
+                let mut mask = 1;
+
+                for bit in outputs.iter().take(std::mem::size_of::<$ty>()*8) {
+                    if self.value(*bit) {
+                        output |= mask
+                    }
+
+                    mask <<= 1;
+                }
+
+                output
+            }
+        });
+    };
+}
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
     pub(super) nodes: Immutable<Vec<InitializedGate>>,
     pub(super) pending_updates: DoubleStack<GateIndex>,
     pub(super) propagation_queue: DoubleStack<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
-    pub(super) output_handles: Immutable<Vec<CircuitOutput>>,
+    pub(super) output_handles: Immutable<Vec<Output>>,
     pub(super) lever_handles: Immutable<Vec<GateIndex>>,
     pub(super) outputs: Immutable<HashSet<GateIndex>>,
     pub(super) state: State,
@@ -55,9 +80,7 @@ impl InitializedGateGraph {
                     Lever => unsafe { self.state.get_state_very_unsafely(idx.idx) },
                     Not => unsafe { !self.state.get_state_very_unsafely(node.dependencies[0].idx) },
                     Or | Nor | And | Nand | Xor | Xnor => {
-                        let mut new_state = if node.dependencies.is_empty() {
-                            false
-                        } else if node.ty.short_circuits() {
+                        let mut new_state = if node.ty.short_circuits() {
                             self.fold_short(&node.ty, &node.dependencies)
                         } else {
                             let mut result = node.ty.init();
@@ -80,15 +103,15 @@ impl InitializedGateGraph {
                     }
                 };
                 // This is safe because in an InitializedGraph nodes.len() <= state.len().
-                if let Some(old_state) = unsafe { self.state.get_if_updated_very_unsafely(idx.idx) }
-                {
+                let old_state = unsafe { self.state.get_state_very_unsafely(idx.idx) };
+
+                // This is safe because in an InitializedGraph nodes.len() <= state.len().
+                if unsafe { self.state.get_updated_very_unsafely(idx.idx) } {
                     if old_state != new_state {
                         self.pending_updates.push(idx);
                     }
                     continue;
                 }
-                // This is safe because in an InitializedGraph nodes.len() <= state.len().
-                let old_state = unsafe { self.state.get_state_very_unsafely(idx.idx) };
                 unsafe { self.state.set_very_unsafely(idx.idx, new_state) };
 
                 #[cfg(feature = "debug_gates")]
@@ -180,62 +203,53 @@ impl InitializedGateGraph {
         self.reset_lever(lever);
         self.run_until_stable(10).unwrap();
     }
-    pub(super) fn get_output_handle(&self, handle: CircuitOutputHandle) -> &CircuitOutput {
+    pub(super) fn get_output_handle(&self, handle: OutputHandle) -> &Output {
         &self.output_handles[handle.0]
     }
     pub(super) fn value(&self, idx: GateIndex) -> bool {
         self.state.get_state(idx.idx)
     }
-    // Collect only first 8 bits from a larger bus.
-    // Or only some bits from a smaller bus.
-    pub(super) fn collect_u8_lossy(&self, outputs: &[GateIndex]) -> u8 {
-        let mut output = 0;
-        let mut mask = 1u8;
 
-        for bit in outputs.iter().take(8) {
-            if self.value(*bit) {
-                output |= mask
-            }
+    type_collectors!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
-            mask <<= 1;
-        }
-
-        output
+    pub fn collect_char_lossy(&self, outputs: &[GateIndex]) -> char {
+        self.collect_u8_lossy(outputs) as char
     }
-    // Collect only first 128 bits from a larger bus.
-    // Or only some bits from a smaller bus.
-    pub(super) fn collect_u128_lossy(&self, outputs: &[GateIndex]) -> u128 {
-        let mut output = 0;
-        let mut mask = 1u128;
 
-        for bit in outputs.iter().take(128) {
-            if self.value(*bit) {
-                output |= mask
-            }
-
-            mask <<= 1;
-        }
-
-        output
-    }
+    /// Returns the number of gates in the graph.
+    // The graph always contains OFF and ON.
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
-    pub fn is_empty(&self) -> bool {
-        self.nodes.len() == 0
+
+    /// Returns the name of `gate`.
+    #[cfg(feature = "debug_gates")]
+    pub(super) fn name(&self, gate: GateIndex) -> &str {
+        &self.names[&gate]
     }
 
-    // Debug operations.
-    #[cfg(feature = "debug_gates")]
-    pub(super) fn name(&self, idx: GateIndex) -> Option<&str> {
-        self.names.get(&idx).map(String::as_str)
-    }
-    #[cfg(feature = "debug_gates")]
-    pub(super) fn full_name(&self, idx: GateIndex) -> Option<String> {
-        Some(format!("{}:{}", self.nodes[idx.idx].ty, self.name(idx)?))
+    /// Returns the "full name" of `gate` in format:
+    ///
+    /// "OUT:?GATE_TYPE:GATE_NAME" if the "debug_gates" feature is enabled.
+    ///
+    /// "OUT:?GATE_TYPE" if the "debug_gates" feature is disabled.
+    ///
+    /// OUT:? means if the gate is an output it will be "OUT:" and "" otherwise.
+    pub(super) fn full_name(&self, gate: GateIndex) -> String {
+        let out = if self.outputs.contains(&gate) {
+            "OUT:"
+        } else {
+            ""
+        };
+        #[cfg(feature = "debug_gates")]
+        return format!("{}{}:{}", out, self.nodes[gate.idx].ty, self.name(gate));
+        #[cfg(not(feature = "debug_gates"))]
+        format!("{}{}", out, self.nodes[gate.idx].ty)
     }
 
-    // TODO dry
+    /// Dumps the graph in [dot](https://en.wikipedia.org/wiki/DOT_(graph_description_language)) format
+    /// to path `filename`, to be visualized by many supported tools, I recommend [gephi](https://gephi.org/).
     pub fn dump_dot(&self, filename: &'static str) {
         use petgraph::dot::{Config, Dot};
         use std::io::Write;
@@ -243,20 +257,7 @@ impl InitializedGateGraph {
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
         for (i, _) in self.nodes.iter().enumerate() {
-            let is_out = self.outputs.contains(&gi!(i));
-            #[cfg(feature = "debug_gates")]
-            #[cfg(not(feature = "debug_gates"))]
-            let label = if is_out {
-                format!("output:{}", node.ty)
-            } else {
-                node.ty.to_string()
-            };
-            #[cfg(feature = "debug_gates")]
-            let label = if is_out {
-                format!("O:{}", self.full_name(gi!(i)).unwrap_or_default())
-            } else {
-                self.full_name(gi!(i)).unwrap_or_default()
-            };
+            let label = self.full_name(gi!(i));
             index.insert(i, graph.add_node(label));
         }
         for (i, node) in self.nodes.iter().enumerate() {
@@ -268,6 +269,7 @@ impl InitializedGateGraph {
         }
         write!(f, "{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel])).unwrap();
     }
+
     // Test operations.
     #[cfg(test)]
     pub fn assert_propagation(&mut self, expected: usize) {

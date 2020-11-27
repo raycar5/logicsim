@@ -15,7 +15,7 @@ pub struct IOBuffer {
     write: Wire,
     reset: Wire,
     write_input: WordInput,
-    read_output: CircuitOutputHandle,
+    read_output: OutputHandle,
     address_input: WordInput,
 }
 impl IOBuffer {

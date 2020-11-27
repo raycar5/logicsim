@@ -13,7 +13,7 @@ fn lookup<I: Iterator<Item = ValueNumber>>(
     dep_nums: I,
     x: GateIndex,
     hash_table: &mut HashMap<Expression, GateIndex>,
-) -> GateIndex {
+) -> ValueNumber {
     let op_hash = if op.is_lever() || x.is_const() {
         x.idx as u64
     } else {
@@ -25,20 +25,28 @@ fn lookup<I: Iterator<Item = ValueNumber>>(
     for dep in dep_nums {
         hasher.write_usize(dep.0.idx);
     }
+
     let hash = hasher.finish();
     if let Some(i) = hash_table.get(&hash) {
-        *i
+        ValueNumber(*i)
     } else {
         hash_table.insert(hash, x);
-        x
+        ValueNumber(x)
     }
 }
-// http://softlib.rice.edu/pub/CRPC-TRs/reports/CRPC-TR95636-S.pdf
+
+/// Implementation of: http://softlib.rice.edu/pub/CRPC-TRs/reports/CRPC-TR95636-S.pdf.
+/// variable names have been kept similar to the paper for clarity.
 pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
-    let mut numbers = NumberMap::new();
+    #[allow(non_snake_case)]
+    let mut VN = NumberMap::new();
 
     let mut hash_table = HashMap::new();
     let mut visited = HashSet::new();
+
+    // The operator hash for levers and constants is their GateIndex,
+    // in order for the other operator hashes to be unique, they must start
+    // after the last GateIndex.
     let op_hash_offset = g.nodes.len() as u64;
     loop {
         let mut done = true;
@@ -53,19 +61,29 @@ pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
                 visited.insert(x);
             }
             // TODO ensure dependencies are sorted at all times.
+            // We need them sorted so that hash(a OR b) == hash(b OR a).
             g.get_mut(x).dependencies.sort();
+
             let gate = g.get(x);
             let op = gate.ty;
-            let dep_nums = gate
+
+            let dependency_value_numbers = gate
                 .dependencies
                 .iter()
-                .filter_map(|dep| numbers.get(&dep))
+                .filter_map(|dep| VN.get(&dep))
                 .copied();
-            let temp = lookup(op, op_hash_offset, dep_nums, x, &mut hash_table);
-            let nx = numbers.get(&x);
-            if nx.copied() != Some(ValueNumber(temp)) {
+
+            let temp = lookup(
+                op,
+                op_hash_offset,
+                dependency_value_numbers,
+                x,
+                &mut hash_table,
+            );
+
+            if VN.get(&x) != Some(&temp) {
                 done = false;
-                numbers.insert(x, ValueNumber(temp));
+                VN.insert(x, temp);
             }
             work.extend(gate.dependents.iter())
         }
@@ -77,7 +95,7 @@ pub fn global_value_numbering_pass(g: &mut GateGraphBuilder) {
         hash_table.clear();
     }
     let mut temp_deps: Vec<GateIndex> = Vec::new();
-    for (x, a) in numbers {
+    for (x, a) in VN {
         if x == a.0 {
             continue;
         }

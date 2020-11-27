@@ -2,7 +2,11 @@ use super::super::{gate::*, graph_builder::GateGraphBuilder};
 
 use smallvec::SmallVec;
 use GateType::*;
-// Simplifies nodes with a single dependency to negated copies or the dependency itself.
+
+/// Replaces gates with a single dependency:
+/// With the dependency itself if the gate is not negated.
+/// With a Not gate if the gate [is negated](GateType::is_negated) and the dependency (has no negated equivalent)[GateType::has_negated_version].
+/// Or with the negated version of the dependency.
 pub fn single_dependency_collapsing_pass(g: &mut GateGraphBuilder) {
     let mut temp_dep_deps = SmallVec::<[GateIndex; GATE_DEPENDENCIES_TINYVEC_SIZE]>::new();
     let mut work: Vec<_> = g

@@ -18,11 +18,11 @@ macro_rules! gi {
     }};
 }
 
-/// The [GateIndex] of the OFF constant in the [super::GateGraphBuilder].
+/// The [GateIndex] of the OFF constant in any [GateGraphBuilder](super::GateGraphBuilder).
 ///
 /// Having it be a constant greatly simplifies both implementation and use.
 pub const OFF: GateIndex = gi!(0);
-/// The [GateIndex] of the ON constant in the [super::GateGraphBuilder].
+/// The [GateIndex] of the ON constant in any [GateGraphBuilder](super::GateGraphBuilder).
 ///
 /// Having it be a constant greatly simplifies both implementation and use.
 pub const ON: GateIndex = gi!(1);
@@ -43,7 +43,7 @@ impl GateIndex {
         *self == ON
     }
 
-    /// Returns true if `self` is the index of the ON of OFF constant.
+    /// Returns true if `self` is [ON] or [OFF].
     ///
     /// # Example
     /// ```

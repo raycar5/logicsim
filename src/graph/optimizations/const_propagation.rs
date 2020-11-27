@@ -108,7 +108,6 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
         on: bool,
     }
 
-    // Propagate constants.
     let off = g.get_mut(OFF);
 
     let mut work: Vec<_> = off

@@ -10,12 +10,30 @@ use std::collections::{HashMap, HashSet};
 
 use GateType::*;
 
+/// Creates gatename, gatename1, gatename2 and gatenamex constructors for every gate with variable dependencies.
+/// The constructors create gates with 0, 1, 2 and x dependencies respectively.
 macro_rules! gate_constructors {
     ($name:ident,$($rest:ident),*) => {
         gate_constructors!($name);
         gate_constructors!($($rest),*);
     };
     ($name:ident) => {
+        gate_constructors!(
+            $name,
+            concat!(
+                "Returns the [GateIndex] of a new `",
+                 stringify!($name),
+                  "` gate with no dependencies. Dependencies can be added with [GateGraphBuilder::dpush]\n\n",
+                "Providing a good name allows for a great debugging experience, you can disable the \"debug_gates\" feature ",
+                "to slightly increase performance"
+            ),
+            concat!("Returns the [GateIndex] of a new `", stringify!($name), "` gate with 1 dependency."),
+            concat!("Returns the [GateIndex] of a new `", stringify!($name), "` gate with 2 dependencies."),
+            concat!("Returns the [GateIndex] of a new `", stringify!($name), "` gate with n dependencies.")
+        );
+    };
+    ($name:ident,$doc0:expr,$doc1:expr,$doc2:expr,$docx:expr) => {
+        #[doc=$doc0]
         pub fn $name<S: Into<String>>(&mut self, name: S) -> GateIndex {
             let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![])).into();
             self.create_gate(idx, std::iter::empty(), name);
@@ -23,6 +41,8 @@ macro_rules! gate_constructors {
         }
 
         concat_idents!(name1 = $name, 1 {
+            // TODO This doesn't work :(
+            //#[doc=$doc1]
             pub fn name1<S: Into<String>>(&mut self, dep: GateIndex, name: S) -> GateIndex {
                 let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![dep])).into();
                 self.create_gate(idx, std::iter::once(dep), name);
@@ -31,6 +51,8 @@ macro_rules! gate_constructors {
         });
 
         concat_idents!(name2 = $name, 2 {
+            // TODO This doesn't work :(
+            //#[doc=$doc2]
             pub fn name2<S: Into<String>>(&mut self, dep1: GateIndex, dep2: GateIndex, name: S) -> GateIndex {
                 let idx = self.nodes.insert(Gate::new(pascal!($name), smallvec![dep1, dep2])).into();
                 self.create_gate(idx, std::iter::once(dep1).chain(std::iter::once(dep2)), name);
@@ -39,6 +61,8 @@ macro_rules! gate_constructors {
         });
 
         concat_idents!(namex = $name, x {
+            // TODO This doesn't work :(
+            //#[doc=$docx]
             pub fn namex<S: Into<String>,I:Iterator<Item=GateIndex>+Clone>(&mut self, iter: I, name: S) -> GateIndex {
                 let idx = self.nodes.insert(Gate::new(pascal!($name), iter.clone().collect())).into();
                 self.create_gate(idx, iter, name);
@@ -48,10 +72,113 @@ macro_rules! gate_constructors {
     };
 }
 
+/// Data structure that represents a graph of logic gates, it can be [initialized](GateGraphBuilder::init) to simulate the circuit.
+///
+/// Conceptually the gates are represented as nodes in a graph with dependency edges to other nodes.
+///
+/// Inputs are represented by constants([ON], [OFF]) and [levers](GateGraphBuilder::lever).
+///
+/// Outputs are represented by [OutputHandles](OutputHandle) which allow you to query the state of gates and
+/// are created by [GateGraphBuilder::output].
+///
+/// Once the graph is initialized, it transforms into an [InitializedGateGraph] which cannot be modified.
+/// The initialization process optimizes the gate graph so that expressive abstractions
+/// that potentially generate lots of [constants](GateIndex::is_const) or useless gates can be used without fear.
+/// All constants and dead gates will be optimized away and the remaining graph simplified very aggressively.
+///
+/// **Zero overhead abstractions!**
+///
+/// # Examples
+/// Simple gates.
+/// ```
+/// # use wires::graph::{GateGraphBuilder,ON,OFF};
+/// let mut g = GateGraphBuilder::new();
+///
+/// // Providing each gate with a string name allows for some very neat debugging.
+/// // If you don't want them affecting performance, you can disable feature "debug_gates",
+/// // all of the strings will be optimized away.
+/// let or = g.or2(ON, OFF, "or");
+/// let or_output = g.output1(or, "or_output");
+///
+/// let and = g.and2(ON, OFF, "and");
+/// let and_output = g.output1(and, "and_output");
+///
+/// let ig = &g.init();
+///
+/// // `b0()` accesses the 0th bit of the output.
+/// // Outputs can have as many bits as you want
+/// // and be accessed with methods like `u8()`, `char()` or `i128()`.
+/// assert_eq!(or_output.b0(ig), true);
+/// assert_eq!(and_output.b0(ig), false);
+/// ```
+///
+/// Levers!
+/// ```
+/// # use wires::graph::{GateGraphBuilder,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let l1 = g.lever("l1");
+/// let l2 = g.lever("l2");
+///
+/// let or = g.or2(l1.bit(), l2.bit(), "or");
+/// let or_output = g.output1(or, "or_output");
+///
+/// let and = g.and2(l1.bit(), l2.bit(), "and");
+/// let and_output = g.output1(and, "and_output");
+///
+/// let ig = &mut g.init();
+///
+/// assert_eq!(or_output.b0(ig), false);
+/// assert_eq!(and_output.b0(ig), false);
+///
+/// // `_stable` means that the graph will run until gate states have stopped changing.
+/// // This might not be what you want if you have a circuit that never stabilizes,
+/// // like 3 not gates connected in a circle!
+/// // See [InitializedGateGraph::run_until_stable].
+/// ig.flip_lever_stable(l1);
+/// assert_eq!(or_output.b0(ig), true);
+/// assert_eq!(and_output.b0(ig), false);
+///
+/// ig.flip_lever_stable(l2);
+/// assert_eq!(or_output.b0(ig), true);
+/// assert_eq!(and_output.b0(ig), true);
+/// ```
+///
+/// [SR Latch!](https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch)
+/// ```
+/// # use wires::graph::{GateGraphBuilder,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let r = g.lever("l1");
+/// let s = g.lever("l2");
+///
+/// let q = g.nor2(r.bit(), OFF, "q");
+/// let nq = g.nor2(s.bit(), q, "nq");
+///
+/// let q_output = g.output1(q, "q");
+/// let nq_output = g.output1(nq, "nq");
+///
+/// // `d1()` replaces the dependency at index 1 with nq.
+/// // We used OFF as a placeholder above.
+/// g.d1(q, nq);
+///
+/// let ig = &mut g.init();
+/// // With latches, the initial state should be treated as undefined,
+/// // so remember to always reset your latches at the beginning of the simulation.
+/// ig.pulse_lever_stable(r);
+/// assert_eq!(q_output.b0(ig), false);
+/// assert_eq!(nq_output.b0(ig), true);
+///
+/// ig.pulse_lever_stable(s);
+/// assert_eq!(q_output.b0(ig), true);
+/// assert_eq!(nq_output.b0(ig), false);
+///
+/// ig.pulse_lever_stable(r);
+/// assert_eq!(q_output.b0(ig), false);
+/// assert_eq!(nq_output.b0(ig), true);
+/// ```
 #[derive(Debug, Clone)]
 pub struct GateGraphBuilder {
     pub(super) nodes: Slab<BuildGate>,
-    output_handles: Vec<CircuitOutput>,
+    output_handles: Vec<Output>,
     pub(super) lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
     #[cfg(feature = "debug_gates")]
@@ -59,9 +186,14 @@ pub struct GateGraphBuilder {
     #[cfg(feature = "debug_gates")]
     probes: HashMap<GateIndex, Probe>,
 }
+/// Intermediate representation between [GateGraphBuilder] and [InitializedGateGraph].
+/// It has the same structure as an [InitializedGateGraph] except for the initialized [State].
+///
+/// It is only used when transforming a [GateGraphBuilder]
+/// into an [InitializedGateGraph] in the [GateGraphBuilder::init] method.
 struct CompactedGateGraph {
     nodes: Vec<InitializedGate>,
-    output_handles: Vec<CircuitOutput>,
+    output_handles: Vec<Output>,
     lever_handles: Vec<GateIndex>,
     outputs: HashSet<GateIndex>,
     #[cfg(feature = "debug_gates")]
@@ -70,6 +202,7 @@ struct CompactedGateGraph {
     probes: HashMap<GateIndex, Probe>,
 }
 impl GateGraphBuilder {
+    /// Returns a new [GateGraphBuilder] containing only [OFF] and [ON].
     pub fn new() -> GateGraphBuilder {
         let mut nodes = Slab::new();
         nodes.insert(Gate {
@@ -94,25 +227,39 @@ impl GateGraphBuilder {
         }
     }
 
-    // Dependency operations.
-    pub fn dpush(&mut self, idx: GateIndex, new_dep: GateIndex) {
-        let gate = self.nodes.get_mut(idx.into()).unwrap();
+    /// Appends `new_dep` to the list of dependencies of gate `target`.
+    ///
+    /// # Panics
+    /// Will panic if `target` can't have a variable number of dependencies.
+    pub fn dpush(&mut self, target: GateIndex, new_dep: GateIndex) {
+        let gate = self.get_mut(target.into());
         match gate.ty {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
+            Not => panic!("Not only has one dependency"),
             Lever => panic!("Lever has no dependencies"),
-            Or | Nor | And | Nand | Xor | Xnor | Not => {
+            Or | Nor | And | Nand | Xor | Xnor => {
                 gate.dependencies.push(new_dep);
                 self.nodes
                     .get_mut(new_dep.into())
                     .unwrap()
                     .dependents
-                    .insert(idx);
+                    .insert(target);
             }
         }
     }
-    pub fn dx(&mut self, idx: GateIndex, new_dep: GateIndex, x: usize) {
-        let gate = self.nodes.get_mut(idx.into()).unwrap();
+
+    /// Sets the dependency at index `x` in `target` dependencies to `new_dep`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `target` has less than `x` + 1 dependencies, you probably want [GateGraphBuilder::dpush] instead.
+    ///
+    /// Will panic if `target` is Not and `x` > 0.
+    ///
+    /// Will panic if `target` can't have dependencies.
+    pub fn dx(&mut self, target: GateIndex, new_dep: GateIndex, x: usize) {
+        let gate = self.nodes.get_mut(target.into()).unwrap();
         match gate.ty {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
@@ -130,21 +277,37 @@ impl GateGraphBuilder {
             .get_mut(old_dep.into())
             .unwrap()
             .dependents
-            .remove(&idx);
+            .remove(&target);
         self.nodes
             .get_mut(new_dep.into())
             .unwrap()
             .dependents
-            .insert(idx);
-    }
-    pub fn d0(&mut self, gate: GateIndex, dep: GateIndex) {
-        self.dx(gate, dep, 0)
-    }
-    pub fn d1(&mut self, gate: GateIndex, dep: GateIndex) {
-        self.dx(gate, dep, 1)
+            .insert(target);
     }
 
-    // Gate operations.
+    /// Sets the dependency at index 0 in `target` dependencies to `new_dep`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `target` has less than 1 dependency, you probably want [GateGraphBuilder::dpush] instead.
+    ///
+    /// Will panic if `target` can't have dependencies.
+    pub fn d0(&mut self, target: GateIndex, new_dep: GateIndex) {
+        self.dx(target, new_dep, 0)
+    }
+
+    /// Sets the dependency at index 1 in `target` dependencies to `new_dep`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `target` has less than 1 dependency, you probably want [GateGraphBuilder::dpush] instead.
+    ///
+    /// Will panic if `target` can't have more than 1 dependency.
+    pub fn d1(&mut self, target: GateIndex, new_dep: GateIndex) {
+        self.dx(target, new_dep, 1)
+    }
+
+    /// Creates the dependent edges and saves the name of new gates.
     #[allow(unused_variables)]
     fn create_gate<S: Into<String>, I: Iterator<Item = GateIndex>>(
         &mut self,
@@ -162,6 +325,11 @@ impl GateGraphBuilder {
         #[cfg(feature = "debug_gates")]
         self.names.insert(idx, name.into());
     }
+
+    /// Returns the [LeverHandle] of a new lever gate.
+    ///
+    /// Providing a good name allows for a great debugging experience.
+    /// You can disable the "debug_gates" feature to slightly increase performance.
     pub fn lever<S: Into<String>>(&mut self, name: S) -> LeverHandle {
         let idx = self.nodes.insert(Gate::new(Lever, smallvec![])).into();
         let handle = self.lever_handles.len();
@@ -169,30 +337,54 @@ impl GateGraphBuilder {
         self.create_gate(idx, std::iter::empty(), name);
         LeverHandle { handle, idx }
     }
-    pub fn not<S: Into<String>>(&mut self, name: S) -> GateIndex {
-        self.not1(OFF, name)
-    }
+
+    /// Returns the [GateIndex] of a new not gate with 1 dependency.
+    ///
+    /// Providing a good name allows for a great debugging experience.
+    /// You can disable the "debug_gates" feature to slightly increase performance.
     pub fn not1<S: Into<String>>(&mut self, dep: GateIndex, name: S) -> GateIndex {
         let idx = self.nodes.insert(Gate::new(Not, smallvec![dep])).into();
         self.create_gate(idx, std::iter::once(dep), name);
         idx
     }
+
+    // Create constructors for all gate types with variable dependencies.
     gate_constructors!(or, nor, and, nand, xor, xnor);
 
+    /// Returns an immutable reference to the [BuildGate] at `idx`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `idx` >= self.nodes.len().
+    ///
+    /// Will panic if `idx` has been removed from self.nodes.
     #[inline(always)]
     pub(super) fn get(&self, idx: GateIndex) -> &BuildGate {
         self.nodes.get(idx.into()).unwrap()
     }
+
+    /// Returns a mutable reference to the [BuildGate] at `idx`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `idx` >= self.nodes.len().
+    ///
+    /// Will panic if `idx` has been removed from self.nodes.
     #[inline(always)]
     pub(super) fn get_mut(&mut self, idx: GateIndex) -> &mut BuildGate {
         self.nodes.get_mut(idx.into()).unwrap()
     }
 
+    /// Returns a new [InitializedGateGraph] created from `self` after running optimizations.
     pub fn init(mut self) -> InitializedGateGraph {
         self.optimize();
         self.init_unoptimized()
     }
 
+    /// Returns a new [CompactedGateGraph] created from `self`.
+    ///
+    /// Compacted means that all gates are placed contiguously and all references to them
+    /// are updated accordingly.
     fn compacted(self) -> CompactedGateGraph {
         #[cfg(feature = "debug_gates")]
         let GateGraphBuilder {
@@ -285,6 +477,8 @@ impl GateGraphBuilder {
             lever_handles: new_lever_handles,
         }
     }
+
+    /// Returns a new [InitializedGateGraph] created from `self` without running optimizations.
     pub fn init_unoptimized(self) -> InitializedGateGraph {
         #[cfg(feature = "debug_gates")]
         let CompactedGateGraph {
@@ -332,6 +526,7 @@ impl GateGraphBuilder {
         new_graph
     }
 
+    /// Runs optimization `f` and prints the results of the optimization.
     fn run_optimization<F: Fn(&mut GateGraphBuilder)>(&mut self, f: F, name: &'static str) {
         let old_len = self.len();
         f(self);
@@ -343,6 +538,8 @@ impl GateGraphBuilder {
             (old_len - self.len()) as f32 / old_len as f32 * 100.
         );
     }
+
+    /// Runs all optimizations.
     fn optimize(&mut self) {
         self.run_optimization(const_propagation_pass, "const propagation");
         self.run_optimization(not_deduplication_pass, "not deduplication");
@@ -357,7 +554,7 @@ impl GateGraphBuilder {
         self.run_optimization(const_propagation_pass, "const propagation");
     }
 
-    // Output operations.
+    /// Returns true if `gate` is a lever or outputs/probes contain `gate`.
     pub(super) fn is_observable(&self, gate: GateIndex) -> bool {
         if self.outputs.contains(&gate) {
             return true;
@@ -371,36 +568,62 @@ impl GateGraphBuilder {
         }
         false
     }
-    pub fn output<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> CircuitOutputHandle {
+
+    /// Returns a new [OutputHandle] with name `name` for the gates in `bits`.
+    ///
+    /// See [OutputHandle] for gate querying methods.
+    pub fn output<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) -> OutputHandle {
         for bit in bits {
             self.outputs.insert(*bit);
         }
-        self.output_handles.push(CircuitOutput {
+        self.output_handles.push(Output {
             bits: bits.into(),
             name: name.into(),
         });
-        CircuitOutputHandle(self.output_handles.len() - 1)
+        OutputHandle(self.output_handles.len() - 1)
     }
-    pub fn output1<S: Into<String>>(&mut self, bit: GateIndex, name: S) -> CircuitOutputHandle {
+
+    /// Returns a new [OutputHandle] with name `name` for a single gate `bit`.
+    ///
+    /// See [OutputHandle] for gate querying methods.
+    pub fn output1<S: Into<String>>(&mut self, bit: GateIndex, name: S) -> OutputHandle {
         self.output(&[bit], name)
     }
 
+    /// Returns the number of gates in the graph.
+    // The graph always contains OFF and ON.
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
-    pub fn is_empty(&self) -> bool {
-        self.nodes.len() == 0
+
+    /// Returns the name of `gate`.
+    #[cfg(feature = "debug_gates")]
+    pub(super) fn name(&self, gate: GateIndex) -> &str {
+        &self.names[&gate]
     }
 
-    // Debug operations.
-    #[cfg(feature = "debug_gates")]
-    pub(super) fn name(&self, idx: GateIndex) -> Option<&str> {
-        self.names.get(&idx).map(String::as_str)
+    /// Returns the "full name" of `gate` in format:
+    ///
+    /// "OUT:?GATE_TYPE:GATE_NAME" if the "debug_gates" feature is enabled.
+    ///
+    /// "OUT:?GATE_TYPE" if the "debug_gates" feature is disabled.
+    ///
+    /// OUT:? means if the gate is an output it will be "OUT:" and "" otherwise.
+    pub(super) fn full_name(&self, gate: GateIndex) -> String {
+        let out = if self.outputs.contains(&gate) {
+            "OUT:"
+        } else {
+            ""
+        };
+        #[cfg(feature = "debug_gates")]
+        return format!("{}{}:{}", out, self.get(gate).ty, self.name(gate));
+        #[cfg(not(feature = "debug_gates"))]
+        format!("{}{}", out, self.get(gate).ty)
     }
-    #[cfg(feature = "debug_gates")]
-    pub(super) fn full_name(&self, idx: GateIndex) -> Option<String> {
-        Some(format!("{}:{}", self.get(idx).ty, self.name(idx)?))
-    }
+
+    /// Dumps the graph in [dot](https://en.wikipedia.org/wiki/DOT_(graph_description_language)) format
+    /// to path `filename`, to be visualized by many supported tools, I recommend [gephi](https://gephi.org/).
     // TODO dry
     pub fn dump_dot(&self, filename: &'static str) {
         use petgraph::dot::{Config, Dot};
@@ -409,20 +632,7 @@ impl GateGraphBuilder {
         let mut graph = petgraph::Graph::<_, ()>::new();
         let mut index = HashMap::new();
         for (i, _) in self.nodes.iter() {
-            let is_out = self.outputs.contains(&i.into());
-            #[cfg(feature = "debug_gates")]
-            #[cfg(not(feature = "debug_gates"))]
-            let label = if is_out {
-                format!("output:{}", node.ty)
-            } else {
-                node.ty.to_string()
-            };
-            #[cfg(feature = "debug_gates")]
-            let label = if is_out {
-                format!("O:{}", self.full_name(i.into()).unwrap_or_default())
-            } else {
-                self.full_name(i.into()).unwrap_or_default()
-            };
+            let label = self.full_name(i.into());
             index.insert(i, graph.add_node(label));
         }
         for (i, node) in self.nodes.iter() {
@@ -435,6 +645,8 @@ impl GateGraphBuilder {
         write!(f, "{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel])).unwrap();
     }
 
+    /// "Probes" the gates in `bits`, meaning that whenever the state of any of them changes,
+    /// the new state of the group will be printed to stdout along with `name`.
     #[cfg(feature = "debug_gates")]
     pub fn probe<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) {
         let name = name.into();
@@ -448,6 +660,9 @@ impl GateGraphBuilder {
             );
         }
     }
+
+    /// "Probes" the gate `bit`, meaning that whenever its state changes,
+    /// the new state will be printed to stdout along with `name`.
     #[cfg(feature = "debug_gates")]
     pub fn probe1<S: Into<String>>(&mut self, bit: GateIndex, name: S) {
         self.probe(&[bit], name)
@@ -500,7 +715,8 @@ mod tests {
     fn test_not_loop() {
         let mut graph = GateGraphBuilder::new();
         let g = &mut graph;
-        let n1 = g.not("n1");
+
+        let n1 = g.not1(OFF, "n1");
         let n2 = g.not1(n1, "n2");
         let n3 = g.not1(n2, "n3");
         g.d0(n1, n3);

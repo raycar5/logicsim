@@ -3,7 +3,7 @@ use super::{
     dead_code_elimination_pass,
 };
 
-// Merges Gates of the same type
+/// Merges Gates of the same type.
 pub fn equal_gate_merging_pass(g: &mut GateGraphBuilder) {
     let mut work: Vec<GateIndex> = g.nodes.iter().map(|(i, _)| i.into()).collect();
     let mut temp_deps = Vec::new();

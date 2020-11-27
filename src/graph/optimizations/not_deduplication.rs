@@ -1,6 +1,6 @@
 use super::super::{gate::*, graph_builder::GateGraphBuilder};
 
-// Replaces all not gates coming from the same gate with a single one.
+/// Replaces all not gates with the same dependency with a single one.
 pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {
     let mut nots = Vec::new();
     let mut temp_deps = Vec::new();
