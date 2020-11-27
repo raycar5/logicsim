@@ -13,15 +13,15 @@ fn main() {
     let out = g.output(&output, "out");
 
     let g = &mut graph.init();
-    input1.set(g, a);
-    input2.set(g, b);
+    input1.set_to(g, a);
+    input2.set_to(g, b);
 
     let t = std::time::Instant::now();
     let mut ticks = 0;
     let mut res = 0;
 
     for i in 0..10000 {
-        input1.set(g, a + i);
+        input1.set_to(g, a + i);
         ticks = ticks + 1 + g.run_until_stable(10).unwrap();
 
         res = out.i128(g);

@@ -1,5 +1,7 @@
 #![allow(unused_imports)]
+
 #[macro_export]
+/// Returns the number of arguments passed to the macro.
 macro_rules! count_arguments {
     ($x:ident) => {
         1
@@ -29,6 +31,8 @@ macro_rules! generate_signal_getters {
     };
 }
 #[macro_export]
+/// Creates a struct representing a named set of control signals.
+/// See the `computer/control_logic.rs` example for detailed usage.
 macro_rules! control_signal_set {
     ($name:ident, $($signals:ident),+) => {
         control_signal_set!(logicsim::count_arguments!($($signals),+),$name,$($signals),+);
@@ -71,7 +75,9 @@ macro_rules! control_signal_set {
         }
     };
 }
+
 #[macro_export]
+/// Returns the bit representation of a subset of control signals within a control signal set.
 macro_rules! signals_to_bits {
     ($signal_set:ty) => {
         0

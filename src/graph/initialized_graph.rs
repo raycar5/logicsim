@@ -40,6 +40,9 @@ macro_rules! type_collectors {
 /// before panicking.
 pub const DEFAULT_STABLE_MAX: usize = 50;
 
+/// Initialized version of [`GateGraphBuilder`]. See [`GateGraphBuilder`] for documentation.
+///
+/// [`GateGraphBuilder`]: super::GateGraphBuilder
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
     pub(super) nodes: Immutable<Vec<InitializedGate>>,
@@ -56,6 +59,8 @@ pub struct InitializedGateGraph {
 }
 
 use GateType::*;
+// The graph always contains OFF and ON.
+#[allow(clippy::len_without_is_empty)]
 impl InitializedGateGraph {
     /// Accumulates the new state for a gate from the state of its dependencies and short circuits out
     /// if the short circuit state of a gate has been reached.
@@ -301,8 +306,6 @@ impl InitializedGateGraph {
     }
 
     /// Returns the number of gates in the graph.
-    // The graph always contains OFF and ON.
-    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.nodes.len()
     }

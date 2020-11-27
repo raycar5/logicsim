@@ -97,8 +97,8 @@ impl IOBuffer {
         g.run_until_stable(10).unwrap();
     }
     pub fn write_u8(&self, g: &mut InitializedGateGraph, address: usize, value: u8) {
-        self.write_input.set(g, value);
-        self.address_input.set(g, address);
+        self.write_input.set_to(g, value);
+        self.address_input.set_to(g, address);
 
         g.set_lever(self.write.lever().unwrap());
         g.pulse_lever_stable(self.clock.lever().unwrap());
@@ -107,7 +107,7 @@ impl IOBuffer {
         self.reset_inputs(g);
     }
     pub fn read_u8(&self, g: &mut InitializedGateGraph, address: usize) -> u8 {
-        self.address_input.set(g, address);
+        self.address_input.set_to(g, address);
 
         g.set_lever_stable(self.read.lever().unwrap());
         let output = self.read_output.u8(g);
@@ -203,7 +203,7 @@ mod tests {
         g.set_lever_stable(read);
         assert_eq!(output.u8(g), 0);
 
-        address_input.set(g, 1);
+        address_input.set_to(g, 1);
         assert_propagation!(g, 1);
         assert_eq!(output.u8(g), 3);
 
@@ -211,7 +211,7 @@ mod tests {
 
         g.reset_lever_stable(read);
         g.set_lever_stable(write);
-        input.set(g, 5);
+        input.set_to(g, 5);
         g.pulse_lever_stable(clock);
         g.reset_lever_stable(write);
 

@@ -1,12 +1,26 @@
 use crate::data_structures::BitIter;
 use crate::graph::*;
 
-pub fn constant<T: Copy + Sized + 'static>(c: T) -> Vec<GateIndex> {
+/// Returns a [Vec] of [ON] or [OFF] values representing the bits of any
+/// [Copy] + [Sized] + ['static](https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html) `value`.
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,constant};
+/// # let mut g = GateGraphBuilder::new();
+/// let c = constant(54u8);
+///
+/// let output = g.output(&c, "const");
+/// let gi = &mut g.init();
+///
+/// assert_eq!(output.u8(gi), 54);
+/// ```
+pub fn constant<T: Copy + Sized + 'static>(value: T) -> Vec<GateIndex> {
     let width = std::mem::size_of::<T>() * 8;
     let mut out = Vec::new();
     out.reserve(width);
 
-    for bit in BitIter::new(c) {
+    for bit in BitIter::new(value) {
         if bit {
             out.push(ON);
         } else {
@@ -17,9 +31,11 @@ pub fn constant<T: Copy + Sized + 'static>(c: T) -> Vec<GateIndex> {
     out
 }
 
+/// Returns a [Vec] of size `n` full of [OFF].
 pub fn zeros(n: usize) -> Vec<GateIndex> {
     (0..n).map(|_| OFF).collect()
 }
+/// Returns a [Vec] of size `n` full of [ON].
 pub fn ones(n: usize) -> Vec<GateIndex> {
     (0..n).map(|_| ON).collect()
 }

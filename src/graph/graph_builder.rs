@@ -214,6 +214,8 @@ struct CompactedGateGraph {
     probes: HashMap<GateIndex, Probe>,
 }
 
+// The graph always contains OFF and ON.
+#[allow(clippy::len_without_is_empty)]
 impl GateGraphBuilder {
     /// Returns a new [GateGraphBuilder] containing only [OFF] and [ON].
     pub fn new() -> GateGraphBuilder {
@@ -255,7 +257,7 @@ impl GateGraphBuilder {
     ///
     /// Will panic if `target` can't have a variable number of dependencies.
     pub fn dpush(&mut self, target: GateIndex, new_dep: GateIndex) {
-        let gate = self.get_mut(target.into());
+        let gate = self.get_mut(target);
         match gate.ty {
             Off => panic!("OFF has no dependencies"),
             On => panic!("ON has no dependencies"),
@@ -614,8 +616,6 @@ impl GateGraphBuilder {
     }
 
     /// Returns the number of gates in the graph.
-    // The graph always contains OFF and ON.
-    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.nodes.len()
     }

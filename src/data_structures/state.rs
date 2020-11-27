@@ -39,6 +39,9 @@ pub struct State {
     states: Vec<u64>,
     updated: Vec<u64>,
 }
+
+// It doesn't make sense for State to be empty;
+#[allow(clippy::len_without_is_empty)]
 impl State {
     /// Returns a new [State] with `n` bits all of which are initialized to `false`.
     pub fn new(n: usize) -> State {
@@ -138,7 +141,6 @@ impl State {
     }
 
     /// Returns the number of bits in the [State].
-    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.states.len() * 64
     }

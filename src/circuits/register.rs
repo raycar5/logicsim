@@ -61,7 +61,7 @@ mod tests {
 
         let g = &mut graph.init();
 
-        input.set(g, value);
+        input.set_to(g, value);
 
         g.run_until_stable(10).unwrap();
         assert_eq!(out.u8(g), 0);
@@ -83,7 +83,7 @@ mod tests {
         g.set_lever_stable(read);
         assert_eq!(out.u8(g), value);
 
-        input.set(g, value ^ value);
+        input.set_to(g, value ^ value);
         assert_propagation!(g, 1);
         assert_eq!(out.u8(g), value);
 

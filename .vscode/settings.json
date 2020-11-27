@@ -1,6 +1,8 @@
 {
     "editor.formatOnSave": true,
     "cSpell.words": [
+        "CNTR",
+        "DFLIPFLOP",
         "Deque",
         "Hasher",
         "Heya",
@@ -11,9 +13,11 @@
         "SRLATCH",
         "TINYVEC",
         "Xnor",
+        "aluish",
         "areg",
         "bimap",
         "bititer",
+        "busmux",
         "clippy",
         "dedup",
         "deps",

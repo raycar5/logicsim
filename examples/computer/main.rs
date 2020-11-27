@@ -77,7 +77,7 @@ fn main() {
     );
     bus.connect(g, &regb_bus_output);
 
-    let alu_output = alu(
+    let alu_output = aluish(
         g,
         signals.cin().bit(),
         signals.alu_out().bit(),

@@ -46,7 +46,8 @@ pub fn word_mask_8(index: usize) -> (usize, u8) {
     (word, mask)
 }
 
-/// Data structure that allows for iterating over the native endian bits of any [Sized] + [Copy] + ['static](https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html) value.
+/// Data structure that allows for iterating over the native endian bits of any
+/// [Sized] + [Copy] + ['static](https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html) value.
 ///
 /// If you are using this data structure with structs, make sure you use a [repr](https://doc.rust-lang.org/nomicon/other-reprs.html) that is defined.
 ///

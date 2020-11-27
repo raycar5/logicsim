@@ -75,7 +75,7 @@ mod tests {
         g.pulse_lever_stable(clock);
         g.reset_lever(reset);
         for a in 0..(1 << address.len()) - 1 {
-            address.set(g, a);
+            address.set_to(g, a);
             assert_eq!(out.u8(g), 0);
         }
     }
@@ -115,8 +115,8 @@ mod tests {
 
         g.set_lever(write);
         for a in 0..(1 << address.len()) - 1 {
-            address.set(g, a);
-            input.set(g, a ^ a);
+            address.set_to(g, a);
+            input.set_to(g, a ^ a);
             g.set_lever(clock);
             g.reset_lever(clock);
             assert_eq!(out.u8(g), 0);
@@ -125,7 +125,7 @@ mod tests {
         g.set_lever(read);
 
         for a in 0..(1 << address.len()) - 1 {
-            address.set(g, a);
+            address.set_to(g, a);
             assert_eq!(out.u8(g), a ^ a);
         }
     }

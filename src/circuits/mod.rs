@@ -1,5 +1,5 @@
 mod adder;
-mod alu;
+mod aluish;
 mod bus;
 mod bus_multiplexer;
 mod constant;
@@ -17,7 +17,7 @@ mod sr_latch;
 mod wire;
 mod word_input;
 pub use adder::*;
-pub use alu::*;
+pub use aluish::*;
 pub use bus::*;
 pub use bus_multiplexer::*;
 pub use constant::*;

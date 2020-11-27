@@ -4,6 +4,29 @@ fn mkname(name: String) -> String {
     format!("ADDER:{}", name)
 }
 
+/// Returns a [Vec]<[GateIndex]> representing the output of
+/// a [ripple carry adder](https://en.wikipedia.org/wiki/Adder_(electronics)#Ripple-carry_adder).
+///
+/// Takes two inputs of any width and a carry in, the output will be the same width as the inputs.
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,constant,adder,ON};
+/// # let mut g = GateGraphBuilder::new();
+/// let input1 = constant(3u8);
+/// let input2 = constant(5u8);
+///
+/// // Notice the carry in bit is on.
+/// let result = adder(&mut g, ON, &input1, &input2, "adder");
+/// let output = g.output(&result, "result");
+///
+/// let ig = &g.init();
+/// assert_eq!(output.u8(ig), 9);
+///
+/// ```
+/// # Panics
+///
+/// Will panic if `input1.len()` != `input2.len()`.
 pub fn adder<S: Into<String>>(
     g: &mut GateGraphBuilder,
     mut cin: GateIndex,
