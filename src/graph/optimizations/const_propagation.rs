@@ -1,4 +1,4 @@
-use super::super::{graph_builder::GateGraphBuilder, types::*};
+use super::super::{gate::*, graph_builder::GateGraphBuilder};
 use GateType::*;
 
 fn find_replacement(

@@ -1,8 +1,10 @@
-mod graph_builder;
+mod handles;
 #[macro_use]
-mod types;
+mod gate;
+mod graph_builder;
 mod initialized_graph;
 mod optimizations;
+pub use gate::*;
 pub use graph_builder::*;
+pub use handles::*;
 pub use initialized_graph::*;
-pub use types::*;

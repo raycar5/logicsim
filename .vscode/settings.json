@@ -17,6 +17,7 @@
         "clippy",
         "dedup",
         "deps",
+        "doctests",
         "dpush",
         "indexmap",
         "mkname",

@@ -1,5 +1,5 @@
 use super::{
-    super::{graph_builder::GateGraphBuilder, types::*},
+    super::{gate::*, graph_builder::GateGraphBuilder},
     dead_code_elimination_pass,
 };
 

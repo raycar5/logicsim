@@ -1,8 +1,8 @@
+use super::gate::*;
+use super::handles::*;
 use super::optimizations::*;
-use super::types::*;
 use super::InitializedGateGraph;
 use crate::data_structures::{Slab, State};
-use crate::gi;
 use casey::pascal;
 use concat_idents::concat_idents;
 use smallvec::smallvec;

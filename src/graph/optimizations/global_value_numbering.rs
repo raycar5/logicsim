@@ -1,4 +1,4 @@
-use super::super::{graph_builder::GateGraphBuilder, types::*};
+use super::super::{gate::*, graph_builder::GateGraphBuilder};
 use super::dead_code_elimination_pass;
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};

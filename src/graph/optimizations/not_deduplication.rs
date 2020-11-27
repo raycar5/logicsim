@@ -1,4 +1,4 @@
-use super::super::{graph_builder::GateGraphBuilder, types::*};
+use super::super::{gate::*, graph_builder::GateGraphBuilder};
 
 // Replaces all not gates coming from the same gate with a single one.
 pub fn not_deduplication_pass(g: &mut GateGraphBuilder) {

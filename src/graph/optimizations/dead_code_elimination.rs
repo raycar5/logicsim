@@ -1,4 +1,4 @@
-use super::super::{graph_builder::GateGraphBuilder, types::*};
+use super::super::{gate::*, graph_builder::GateGraphBuilder};
 // Traverses the graph backwards removing all nodes with no dependents.
 pub fn dead_code_elimination_pass(g: &mut GateGraphBuilder) {
     let mut temp_dependencies = Vec::new();

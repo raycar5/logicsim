@@ -1,11 +1,11 @@
-use super::types::*;
+use super::gate::*;
+use super::handles::*;
 use crate::data_structures::{DoubleStack, Immutable, State};
-use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
 pub struct InitializedGateGraph {
     // Making node immutable makes the program slightly slower when the binary includes debug information.
-    pub(super) nodes: Immutable<Vec<Gate<SmallVec<[GateIndex; 2]>>>>,
+    pub(super) nodes: Immutable<Vec<InitializedGate>>,
     pub(super) pending_updates: DoubleStack<GateIndex>,
     pub(super) propagation_queue: DoubleStack<GateIndex>, // Allocated outside to prevent allocations in the hot loop.
     pub(super) output_handles: Immutable<Vec<CircuitOutput>>,
