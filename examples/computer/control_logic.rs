@@ -179,7 +179,7 @@ pub fn setup_control_logic(
     reset: GateIndex,
     mut signals: ControlSignalsSet,
 ) {
-    // Instruction opcode register
+    // INSTRUCTION OPCODE REGISTER
     let ior_output = register(
         g,
         bus.bits(),
@@ -190,7 +190,8 @@ pub fn setup_control_logic(
         "ior",
     );
     assert_eq!(ior_output.len(), OPCODE_LENGTH as usize);
-    // Instruction data register
+
+    // INSTRUCTION DATA REGISTER
     let idr_output = register(
         g,
         bus.bits(),
@@ -204,6 +205,7 @@ pub fn setup_control_logic(
 
     bus.connect(g, &idr_output);
 
+    // INSTRUCTION COUNTER
     signals.ic_reset().clone().connect(g, reset);
 
     let nclock = g.not1(clock, "nclock");
@@ -218,6 +220,7 @@ pub fn setup_control_logic(
         "ic",
     );
 
+    // MICROINSTRUCTION ROM
     let microinstruction_input: Vec<_> = instruction_counter
         .into_iter()
         .chain(std::iter::once(rega_zero))

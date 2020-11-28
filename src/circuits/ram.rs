@@ -71,9 +71,7 @@ mod tests {
         g.set_lever(read);
         assert_eq!(out.u8(g), 0);
 
-        g.set_lever(reset);
-        g.pulse_lever_stable(clock);
-        g.reset_lever(reset);
+        g.pulse_lever_stable(reset);
         for a in 0..(1 << address.len()) - 1 {
             address.set_to(g, a);
             assert_eq!(out.u8(g), 0);
@@ -107,9 +105,7 @@ mod tests {
         let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
-        g.set_lever(reset);
-        g.pulse_lever(clock);
-        g.reset_lever(reset);
+        g.pulse_lever_stable(reset);
 
         assert_eq!(out.u8(g), 0);
 

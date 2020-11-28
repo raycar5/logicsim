@@ -8,6 +8,7 @@ pub fn d_flip_flop<S: Into<String>>(
     g: &mut GateGraphBuilder,
     d: GateIndex,
     clock: GateIndex,
+    reset: GateIndex,
     write: GateIndex,
     read: GateIndex,
     name: S,
@@ -21,7 +22,9 @@ pub fn d_flip_flop<S: Into<String>>(
     let s_and = g.and2(input, clock, name.clone());
     let r_and = g.and2(ninput, clock, name.clone());
 
-    let q = sr_latch(g, s_and, r_and, name.clone());
+    let r_or = g.or2(r_and, reset, name.clone());
+
+    let q = sr_latch(g, s_and, r_or, name.clone());
     g.and2(q, read, name)
 }
 
@@ -36,6 +39,7 @@ mod tests {
 
         let d = g.lever("d");
         let read = g.lever("read");
+        let reset = g.lever("reset");
         let write = g.lever("write");
         let clock = g.lever("clock");
 
@@ -43,6 +47,7 @@ mod tests {
             g,
             d.bit(),
             clock.bit(),
+            reset.bit(),
             write.bit(),
             read.bit(),
             "flippity floop",
@@ -51,6 +56,7 @@ mod tests {
         let g = &mut graph.init();
 
         g.run_until_stable(10).unwrap();
+        g.pulse_lever_stable(reset);
         assert_eq!(out.b0(g), false);
 
         g.set_lever(d);

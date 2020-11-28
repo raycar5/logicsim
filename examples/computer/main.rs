@@ -30,6 +30,8 @@ fn main() {
     }
 
     let signals = ControlSignalsSet::new(g);
+
+    // PROGRAM COUNTER
     let pc_output = counter(
         g,
         clock.bit(),
@@ -42,6 +44,7 @@ fn main() {
     );
     bus.connect(g, &pc_output);
 
+    // REGISTER A
     let rega_buffer = register(
         g,
         bus.bits(),
@@ -60,6 +63,7 @@ fn main() {
     );
     bus.connect(g, &rega_bus_output);
 
+    // REGISTER B
     let regb_output = register(
         g,
         bus.bits(),
@@ -77,6 +81,7 @@ fn main() {
     );
     bus.connect(g, &regb_bus_output);
 
+    // ALU
     let alu_output = aluish(
         g,
         signals.cin().bit(),
@@ -88,6 +93,7 @@ fn main() {
     );
     bus.connect(g, &alu_output);
 
+    // ADDRESS REGISTER
     let address_reg_output = register(
         g,
         bus.bits(),
@@ -107,6 +113,7 @@ fn main() {
     let ram_address_space_bit = address_reg_output[bits - 1];
     let rom_address_space_bit = g.not1(ram_address_space_bit, "ram_address_bit");
 
+    // ROM
     let rom_read_enable = g.and2(
         signals.rom_out().bit(),
         rom_address_space_bit,
@@ -115,6 +122,7 @@ fn main() {
     let rom_output = rom(g, rom_read_enable, &address_reg_output, &rom_data, "rom");
     bus.connect(g, &rom_output);
 
+    // RAM
     let ram_read_enable = g.and2(
         signals.ram_out().bit(),
         ram_address_space_bit,
@@ -137,6 +145,7 @@ fn main() {
     );
     bus.connect(g, &ram_output);
 
+    // OUTPUT REGISTER
     let rego_output = output_register(
         g,
         bus.bits(),
@@ -167,9 +176,7 @@ fn main() {
     g.run_until_stable(100).unwrap();
 
     // RESET
-    g.set_lever_stable(reset_lever);
-    g.pulse_lever_stable(clock_lever);
-    g.reset_lever_stable(reset_lever);
+    g.pulse_lever_stable(reset_lever);
     println!("Init+reset time: {}ms", t.elapsed().as_millis());
     println!("");
 

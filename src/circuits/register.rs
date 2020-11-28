@@ -1,4 +1,4 @@
-use super::{bus_multiplexer, d_flip_flop, zeros};
+use super::d_flip_flop;
 use crate::graph::*;
 
 fn mkname(name: String) -> String {
@@ -19,11 +19,17 @@ pub fn register<S: Into<String>>(
     let width = input.len();
     let mut out = Vec::new();
 
-    let write = g.or2(write, reset, name.clone());
-    let new_input = bus_multiplexer(g, &[reset], &[input, &zeros(input.len())], name.clone());
     out.reserve(width);
-    for bit in new_input {
-        out.push(d_flip_flop(g, bit, clock, write, read, name.clone()))
+    for bit in input {
+        out.push(d_flip_flop(
+            g,
+            *bit,
+            clock,
+            reset,
+            write,
+            read,
+            name.clone(),
+        ))
     }
     out
 }
@@ -96,8 +102,7 @@ mod tests {
         g.reset_lever(clock);
         assert_eq!(out.u8(g), value ^ value);
 
-        g.set_lever(reset);
-        g.set_lever(clock);
+        g.set_lever_stable(reset);
         assert_eq!(out.u8(g), 0);
     }
 }

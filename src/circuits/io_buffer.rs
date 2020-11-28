@@ -189,9 +189,7 @@ mod tests {
         g.run_until_stable(10).unwrap();
 
         // Reset by circuit.
-        g.set_lever(reset);
-        g.pulse_lever_stable(clock);
-        g.reset_lever(reset);
+        g.pulse_lever_stable(reset);
 
         assert_eq!(buffer.read_u8(g, 0), 0);
 

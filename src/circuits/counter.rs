@@ -92,9 +92,7 @@ mod tests {
         let g = &mut graph.init();
         g.run_until_stable(100).unwrap();
 
-        g.set_lever(reset);
-        g.pulse_lever_stable(clock);
-        g.reset_lever(reset);
+        g.pulse_lever_stable(reset);
 
         assert_eq!(output.bx(g, 0), false);
         assert_eq!(output.bx(g, 1), false);
@@ -196,8 +194,7 @@ mod tests {
             assert_eq!(output.u8(g), i);
         }
 
-        g.set_lever(reset);
-        g.pulse_lever_stable(clock);
+        g.pulse_lever_stable(reset);
 
         assert_propagation!(g, 0);
         assert_eq!(output.u8(g), 0);
