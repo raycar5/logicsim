@@ -4,15 +4,18 @@ fn mkname(name: String) -> String {
     format!("OUTREG:{}", name)
 }
 
+/// Returns a pair representing an "updated" bit and the output of a [register] respectively,
+/// Whenever a write happens to the register, the "updated" bit is set,
+// it will stay set until "ack" becomes active.
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
 pub fn output_register<S: Into<String>>(
     g: &mut GateGraphBuilder,
-    input: &[GateIndex],
     clock: GateIndex,
     write: GateIndex,
     read: GateIndex,
     reset: GateIndex,
+    input: &[GateIndex],
     ack: GateIndex,
     name: S,
 ) -> (GateIndex, Vec<GateIndex>) {
@@ -22,7 +25,7 @@ pub fn output_register<S: Into<String>>(
     let updated_r = g.or2(reset, ack, name.clone());
     let updated_output = sr_latch(g, updated_s, updated_r, name.clone());
 
-    let register_output = register(g, input, clock, write, read, reset, name);
+    let register_output = register(g, clock, write, read, reset, input, name);
     (updated_output, register_output)
 }
 

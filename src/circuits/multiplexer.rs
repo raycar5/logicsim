@@ -5,8 +5,37 @@ fn mkname(name: String) -> String {
     format!("MUX:{}", name)
 }
 
-/// Returns the a [GateIndex] representing the output of one of the `inputs` selected by `address`.
+/// Returns the output of a [multiplexer](https://en.wikipedia.org/wiki/Multiplexer).
+/// which selects one of the `inputs` by `address`.
 /// If `inputs` is not big enough to cover the whole address space, it will get filled by [OFF].
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,multiplexer,WordInput,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let address = WordInput::new(&mut g, 3, "address");
+///
+/// // Notice the carry and invert in bits are on.
+/// let result = multiplexer(&mut g, &address.bits(), &[ON, OFF, OFF, ON], "mux");
+/// let output = g.output1(result, "result");
+///
+/// let ig = &mut g.init();
+/// ig.run_until_stable(2);
+///
+/// assert_eq!(output.b0(ig), true);
+///
+/// address.set_to(ig, 1);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.b0(ig), false);
+///
+/// address.set_to(ig, 2);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.b0(ig), false);
+///
+/// address.set_to(ig, 3);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.b0(ig), true);
+/// ```
 ///
 /// # Panics
 ///

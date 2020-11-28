@@ -5,6 +5,27 @@ fn mkname(name: String) -> String {
     format!("DECODER:{}", name)
 }
 
+/// Returns the output of a [decoder](https://en.wikipedia.org/wiki/Binary_decoder).
+/// The output width will be 2^address.len().
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,decoder,WordInput,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let input = WordInput::new(&mut g, 3, "input");
+/// let out = decoder(&mut g, &input.bits(), "decoder");
+///
+/// let output = g.output(&out, "result");
+///
+/// let ig = &mut g.init();
+/// ig.run_until_stable(2);
+///
+/// assert_eq!(output.u8(ig), 0b1);
+///
+/// input.set_to(ig, 2);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.u8(ig), 0b100);
+/// ```
 pub fn decoder<S: Into<String>>(
     g: &mut GateGraphBuilder,
     address: &[GateIndex],

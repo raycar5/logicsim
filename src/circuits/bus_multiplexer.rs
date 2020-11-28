@@ -5,7 +5,9 @@ fn mkname(name: String) -> String {
     format!("BUSMUX:{}", name)
 }
 
-/// Returns a [Vec]<[GateIndex]> which contains the output of the `input` selected by `address`.
+/// Returns one of the `inputs` selected by `address`.
+/// Conceptually it is a combination of [multiplexers](https://en.wikipedia.org/wiki/Multiplexer), one for each I/O bit.
+///
 /// The output width will be the width of the widest of the inputs.
 /// If not enough inputs are provided, the rest of the address space will be filled with [OFF].
 ///
@@ -33,6 +35,7 @@ fn mkname(name: String) -> String {
 /// ig.flip_lever_stable(address);
 /// assert_eq!(output.u8(ig), 3);
 /// ```
+///
 /// # Panics
 ///
 /// Will panic if not enough `address` bits are provided to address every `input`.

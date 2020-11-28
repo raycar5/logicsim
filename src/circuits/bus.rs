@@ -8,7 +8,7 @@ fn mkname(name: String) -> String {
 /// Data structure that helps with managing buses, it allows you to connect &[[GateIndex]] to it as well as providing
 /// a &[[GateIndex]] to connect to other components.
 ///
-/// This is basically syntactic sugar for a set of or gates.
+/// It is basically syntactic sugar for a set of or gates.
 ///
 /// # Example
 /// ```

@@ -5,6 +5,64 @@ fn mkname(name: String) -> String {
     format!("CNTR:{}", name)
 }
 
+/// Returns the output of a [counter](https://en.wikipedia.org/wiki/Counter_(digital)).
+/// The output width will be the same as the provided `input`.
+///
+/// # Inputs
+///
+/// `clock` Clock input to the register, activated on the raising edge.
+///
+/// `enable` Counter enable, if it is active during a `clock` raising edge, the counter will increment.
+///
+/// `write` If active during the `clock` raising edge, the `input` will be stored in the internal register.
+///
+/// `read` If inactive the output will be inactive.
+///
+/// `reset` Will set the internal register to zero on the raising edge. This is an async reset.
+///
+/// `input` Will override the contents of the internal register if `write` is active on the `clock` raising edge.
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,counter,constant,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let input = constant(5u8);
+/// let reset = g.lever("reset");
+/// let clock = g.lever("clock");
+/// let write = g.lever("write");
+///
+/// let counter_output = counter(
+///     &mut g,
+///     clock.bit(),
+///     ON,  // enable
+///     write.bit(),
+///     ON,  // read
+///     reset.bit(),
+///     &input,
+///     "counter"
+/// );
+///
+/// let output = g.output(&counter_output, "result");
+///
+/// let ig = &mut g.init();
+/// ig.pulse_lever_stable(reset);
+///
+/// assert_eq!(output.u8(ig), 0);
+///
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.u8(ig), 1);
+///
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.u8(ig), 2);
+///
+/// ig.set_lever(write);
+/// ig.pulse_lever_stable(clock);
+/// ig.reset_lever_stable(write);
+/// assert_eq!(output.u8(ig), 5);
+///
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.u8(ig), 6);
+/// ```
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
 pub fn counter<S: Into<String>>(
@@ -33,20 +91,20 @@ pub fn counter<S: Into<String>>(
     let master_register_input = bus_multiplexer(g, &[write], &[&adder_output, input], name.clone());
     let master_register_output = register(
         g,
-        &master_register_input,
         nclock,
         ON,
         ON,
         reset,
+        &master_register_input,
         name.clone(),
     );
     let slave_register_output = register(
         g,
-        &master_register_output,
         clock,
         ON,
         ON,
         reset,
+        &master_register_output,
         name.clone(),
     );
     adder_input.connect(g, &slave_register_output);

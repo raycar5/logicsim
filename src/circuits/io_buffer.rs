@@ -3,10 +3,13 @@ use crate::{graph::*, ram, wire, Bus, Wire, WordInput};
 fn mkname(name: String) -> String {
     format!("IOBUF:{}", name)
 }
+/// Data structure used to represent a piece of [RAM](https://en.wikipedia.org/wiki/Random-access_memory)
+/// that can be easily read and written to from rust.
+///
+/// It is a naive implementation, therefore reading and writing should be done between clock cycles
+/// of the circuit interacting with the IOBuffer.
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
-// Naive implementation, reading and writing has to be done in between clock cycles of the
-// circuit interacting with the IOBuffer.
 pub struct IOBuffer {
     io_bus: Bus,
     address_bus: Bus,
@@ -19,6 +22,7 @@ pub struct IOBuffer {
     address_input: WordInput,
 }
 impl IOBuffer {
+    /// Returns a new [IOBuffer] which stores `len` words which are `width` bits wide.
     pub fn new<S: Into<String>>(
         g: &mut GateGraphBuilder,
         width: usize,
@@ -72,6 +76,7 @@ impl IOBuffer {
             reset,
         }
     }
+    /// Connects the IOBuffer to a circuit.
     // rust-analyzer makes this a non issue.
     #[allow(clippy::too_many_arguments)]
     pub fn connect(
@@ -91,12 +96,23 @@ impl IOBuffer {
         self.reset.connect(g, reset);
         self.io_bus.merge(g, io_bus)
     }
+
+    /// Sets the address and write inputs to 0.
     fn reset_inputs(&self, g: &mut InitializedGateGraph) {
         self.address_input.reset(g);
         self.write_input.reset(g);
         g.run_until_stable(10).unwrap();
     }
-    pub fn write_u8(&self, g: &mut InitializedGateGraph, address: usize, value: u8) {
+
+    /// Sets word at `address` to `value`.
+    /// Extra bits in `address` or `value` will be truncated.
+    /// If `address` or `value` are missing bits, they will be 0 extended.
+    pub fn write<A: Copy + Sized + 'static, T: Copy + Sized + 'static>(
+        &self,
+        g: &mut InitializedGateGraph,
+        address: A,
+        value: T,
+    ) {
         self.write_input.set_to(g, value);
         self.address_input.set_to(g, address);
 
@@ -106,7 +122,16 @@ impl IOBuffer {
 
         self.reset_inputs(g);
     }
-    pub fn read_u8(&self, g: &mut InitializedGateGraph, address: usize) -> u8 {
+
+    // TODO macro this for more types.
+    /// Returns the value of the word at `address`.
+    /// Extra bits in `address` will be truncated.
+    /// If `address` is missing bits, it will be 0 extended.
+    pub fn read_u8<A: Copy + Sized + 'static>(
+        &self,
+        g: &mut InitializedGateGraph,
+        address: A,
+    ) -> u8 {
         self.address_input.set_to(g, address);
 
         g.set_lever_stable(self.read.lever().unwrap());
@@ -116,10 +141,10 @@ impl IOBuffer {
         self.reset_inputs(g);
         output
     }
+
+    /// Sets all words in the buffer to 0.
     pub fn reset(&self, g: &mut InitializedGateGraph) {
-        g.set_lever(self.reset.lever().unwrap());
-        g.pulse_lever_stable(self.clock.lever().unwrap());
-        g.reset_lever_stable(self.reset.lever().unwrap())
+        g.pulse_lever_stable(self.reset.lever().unwrap());
     }
 }
 
@@ -141,7 +166,7 @@ mod tests {
 
         assert_eq!(buffer.read_u8(g, 0), 0);
 
-        buffer.write_u8(g, 1, 3);
+        buffer.write(g, 1, 3);
 
         assert_eq!(buffer.read_u8(g, 0), 0);
 
@@ -194,7 +219,7 @@ mod tests {
         assert_eq!(buffer.read_u8(g, 0), 0);
 
         // Write in buffer, read by circuit.
-        buffer.write_u8(g, 1, 3);
+        buffer.write(g, 1, 3);
         g.run_until_stable(10).unwrap();
 
         println!("here");

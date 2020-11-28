@@ -182,11 +182,11 @@ pub fn setup_control_logic(
     // INSTRUCTION OPCODE REGISTER
     let ior_output = register(
         g,
-        bus.bits(),
         clock,
         signals.ior_in().bit(),
         ON,
         reset,
+        bus.bits(),
         "ior",
     );
     assert_eq!(ior_output.len(), OPCODE_LENGTH as usize);
@@ -194,11 +194,11 @@ pub fn setup_control_logic(
     // INSTRUCTION DATA REGISTER
     let idr_output = register(
         g,
-        bus.bits(),
         clock,
         signals.idr_in().bit(),
         signals.idr_out().bit(),
         reset,
+        bus.bits(),
         "idr",
     );
     assert_eq!(idr_output.len(), DATA_LENGTH as usize);

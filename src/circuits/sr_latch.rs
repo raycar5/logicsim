@@ -4,6 +4,31 @@ fn mkname(name: String) -> String {
     format!("SRLATCH:{}", name)
 }
 
+/// Returns the Q output of an [SR latch](https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch).
+///
+/// # Example
+///
+/// ```
+/// # use logicsim::{GateGraphBuilder,sr_latch};
+/// # let mut g = GateGraphBuilder::new();
+/// let s = g.lever("s");
+/// let r = g.lever("r");
+///
+/// let q = sr_latch(&mut g, s.bit(), r.bit(), "latch");
+/// let q_output = g.output1(q, "q");
+///
+/// let ig = &mut g.init();
+/// // With latches, the initial state should be treated as undefined,
+/// // so remember to always reset your latches at the beginning of the simulation.
+/// ig.pulse_lever_stable(r);
+/// assert_eq!(q_output.b0(ig), false);
+///
+/// ig.pulse_lever_stable(s);
+/// assert_eq!(q_output.b0(ig), true);
+///
+/// ig.pulse_lever_stable(r);
+/// assert_eq!(q_output.b0(ig), false);
+/// ```
 pub fn sr_latch<S: Into<String>>(
     g: &mut GateGraphBuilder,
     s: GateIndex,

@@ -5,6 +5,8 @@ fn mkname(name: String) -> String {
     format!("RAM:{}", name)
 }
 
+/// Returns the output of a piece of [RAM](https://en.wikipedia.org/wiki/Random-access_memory)
+/// addressed by `address`.
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
 pub fn ram<S: Into<String>>(
@@ -25,7 +27,7 @@ pub fn ram<S: Into<String>>(
         let write = g.and2(cell_enable, write, name.clone());
 
         let read = g.and2(cell_enable, read, name.clone());
-        let cell = register(g, input, clock, write, read, reset, name.clone());
+        let cell = register(g, clock, write, read, reset, input, name.clone());
 
         for (ob, cb) in outputs.iter().zip(cell) {
             g.dpush(*ob, cb)

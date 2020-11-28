@@ -10,6 +10,7 @@ fn mkname(name: String) -> String {
 pub struct WordInput {
     levers: Vec<LeverHandle>,
 }
+// TODO "_stable" versions.
 impl WordInput {
     /// Returns a new [WordInput] of width `width` with name `name`.
     pub fn new<S: Into<String>>(g: &mut GateGraphBuilder, width: usize, name: S) -> Self {

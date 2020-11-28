@@ -6,7 +6,39 @@ fn mkname(name: String) -> String {
     format!("ROM:{}", name)
 }
 
-// Will fill missing addresses with zeros.
+/// Returns the output of a piece of addressable [ROM](https://en.wikipedia.org/wiki/Read-only_memory) filled with `data`.
+/// If `data` is not long enough to fill the entire address space, it will be filled with [OFF].
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,rom,WordInput,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let address = WordInput::new(&mut g, 3, "address");
+/// let out = rom(&mut g, ON, &address.bits(), &[3,9,1], "rom");
+///
+/// let output = g.output(&out, "result");
+///
+/// let ig = &mut g.init();
+/// ig.run_until_stable(2);
+///
+/// assert_eq!(output.u8(ig), 3);
+///
+/// address.set_to(ig, 1);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.u8(ig), 9);
+///
+/// address.set_to(ig, 2);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.u8(ig), 1);
+///
+/// address.set_to(ig, 3);
+/// ig.run_until_stable(2);
+/// assert_eq!(output.u8(ig), 0);
+/// ```
+///
+/// # Panics
+///
+/// Will panic if not enough `address` bits are provided to address every value in `data`.
 pub fn rom<T: Copy + 'static + Sized, S: Into<String>>(
     g: &mut GateGraphBuilder,
     read: GateIndex,
@@ -14,9 +46,14 @@ pub fn rom<T: Copy + 'static + Sized, S: Into<String>>(
     data: &[T],
     name: S,
 ) -> Vec<GateIndex> {
+    assert!(
+        2usize.pow(address.len() as u32) >= data.len(),
+        "`address` doesn't have enough bits to address every input, address bits: {} input len:{}",
+        address.len(),
+        data.len(),
+    );
     let name = mkname(name.into());
     let word_length = std::mem::size_of::<T>() * 8;
-    assert!(word_length <= 64);
 
     let decoded = decoder(g, address, name.clone());
     let out: Vec<GateIndex> = (0..word_length).map(|_| g.or(name.clone())).collect();

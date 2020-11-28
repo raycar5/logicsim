@@ -5,13 +5,61 @@ fn mkname(name: String) -> String {
     format!("REG:{}", name)
 }
 
+/// Returns the output of a [register](https://en.wikipedia.org/wiki/Hardware_register).
+/// The output width will be the same as the provided `input`.
+///
+/// # Inputs
+///
+/// `clock` Clock input to the register, activated on the raising edge.
+///
+/// `write` If active during the `clock` raising edge, the `input` will be stored in the register.
+///
+/// `read` If inactive the output will be inactive.
+///
+/// `reset` Will set the register to zero on the raising edge. This is an async reset.
+///
+/// `input` Will override the contents of the register if `write` is active on the `clock` raising edge.
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,register,WordInput,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let input = WordInput::new(&mut g, 4, "input");
+/// let reset = g.lever("reset");
+/// let clock = g.lever("clock");
+///
+/// let register_output = register(
+///     &mut g,
+///     clock.bit(),
+///     ON,  // write
+///     ON,  // read
+///     reset.bit(),
+///     &input.bits(),
+///     "counter"
+/// );
+///
+/// let output = g.output(&register_output, "result");
+///
+/// let ig = &mut g.init();
+/// ig.pulse_lever_stable(reset);
+///
+/// assert_eq!(output.u8(ig), 0);
+///
+/// input.set_to(ig, 6);
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.u8(ig), 6);
+///
+/// input.set_to(ig, 2);
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.u8(ig), 2);
+/// ```
 pub fn register<S: Into<String>>(
     g: &mut GateGraphBuilder,
-    input: &[GateIndex],
     clock: GateIndex,
     write: GateIndex,
     read: GateIndex,
     reset: GateIndex,
+    input: &[GateIndex],
     name: S,
 ) -> Vec<GateIndex> {
     let name = mkname(name.into());
@@ -54,11 +102,11 @@ mod tests {
 
         let r = register(
             g,
-            &input.bits(),
             clock.bit(),
             write.bit(),
             read.bit(),
             reset.bit(),
+            &input.bits(),
             "reg",
         );
 

@@ -4,6 +4,55 @@ fn mkname(name: String) -> String {
     format!("DFLIPFLOP:{}", name)
 }
 
+/// Returns the Q output of a [D flip-flop](https://en.wikipedia.org/wiki/Flip-flop_(electronics)#D_flip-flop).
+///
+/// # Inputs
+///
+/// `d` Value to store.
+///
+/// `clock` Stores the value `d` on the rising edge if `write` is active.
+///
+/// `reset` Stores the value false on the rising edge. This is an async reset.
+///
+/// `write` Write enable.
+///
+/// `read` If inactive, the output is inactive.
+//
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,d_flip_flop,ON,OFF};
+/// # let mut g = GateGraphBuilder::new();
+/// let d = g.lever("d");
+/// let reset = g.lever("reset");
+/// let clock = g.lever("clock");
+/// let write = g.lever("write");
+///
+/// let q = d_flip_flop(
+///     &mut g,
+///     d.bit(),
+///     clock.bit(),
+///     reset.bit(),
+///     write.bit(),
+///     ON,  // read
+///     "counter"
+/// );
+///
+/// let output = g.output1(q, "result");
+///
+/// let ig = &mut g.init();
+/// ig.pulse_lever_stable(reset);
+///
+/// assert_eq!(output.b0(ig), false);
+///
+/// ig.set_lever(write);
+/// ig.set_lever(d);
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.b0(ig), true);
+///
+/// ig.reset_lever(d);
+/// ig.pulse_lever_stable(clock);
+/// assert_eq!(output.b0(ig), false);
+/// ```
 pub fn d_flip_flop<S: Into<String>>(
     g: &mut GateGraphBuilder,
     d: GateIndex,

@@ -11,8 +11,7 @@ macro_rules! wire {
 
 /// Data structure that helps with connecting wires to many different components.
 ///
-/// This is basically syntactic sugar for an or gate.
-// TODO example.
+/// It is basically syntactic sugar for an or gate.
 /// # Example
 /// ```
 /// # use logicsim::{GateGraphBuilder,counter,Wire,ON,OFF,zeros};

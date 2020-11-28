@@ -5,7 +5,7 @@ fn mkname(name: String) -> String {
     format!("ALUISH:{}", name)
 }
 
-/// Returns a [Vec]<[GateIndex]> representing the output of an ALU which can only add and subtract.
+/// Returns the output of an [ALU](https://en.wikipedia.org/wiki/Arithmetic_logic_unit) which can only add and subtract.
 ///
 /// # Inputs
 ///

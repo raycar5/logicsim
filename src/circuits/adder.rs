@@ -4,8 +4,7 @@ fn mkname(name: String) -> String {
     format!("ADDER:{}", name)
 }
 
-/// Returns a [Vec]<[GateIndex]> representing the output of
-/// a [ripple carry adder](https://en.wikipedia.org/wiki/Adder_(electronics)#Ripple-carry_adder).
+/// Returns the output of a [ripple carry adder](https://en.wikipedia.org/wiki/Adder_(electronics)#Ripple-carry_adder).
 ///
 /// Takes two inputs of any width and a carry in, the output will be the same width as the inputs.
 ///

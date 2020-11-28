@@ -47,14 +47,14 @@ fn main() {
     // REGISTER A
     let rega_buffer = register(
         g,
-        bus.bits(),
         clock.bit(),
         signals.rega_in().bit(),
         ON,
         reset.bit(),
+        bus.bits(),
         "rega_buffer",
     );
-    let rega_output = register(g, &rega_buffer, nclock, ON, ON, reset.bit(), "rega");
+    let rega_output = register(g, nclock, ON, ON, reset.bit(), &rega_buffer, "rega");
     let rega_bus_output = bus_multiplexer(
         g,
         &[signals.rega_out().bit()],
@@ -66,11 +66,11 @@ fn main() {
     // REGISTER B
     let regb_output = register(
         g,
-        bus.bits(),
         clock.bit(),
         signals.regb_in().bit(),
         ON,
         reset.bit(),
+        bus.bits(),
         "regb",
     );
     let regb_bus_output = bus_multiplexer(
@@ -96,11 +96,11 @@ fn main() {
     // ADDRESS REGISTER
     let address_reg_output = register(
         g,
-        bus.bits(),
         clock.bit(),
         signals.address_reg_in().bit(),
         ON,
         reset.bit(),
+        bus.bits(),
         "areg",
     );
     let address_reg_bus_output = bus_multiplexer(
@@ -148,11 +148,11 @@ fn main() {
     // OUTPUT REGISTER
     let rego_output = output_register(
         g,
-        bus.bits(),
         clock.bit(),
         signals.rego_in().bit(),
         ON,
         reset.bit(),
+        bus.bits(),
         ack_lever.bit(),
         "rego",
     );
