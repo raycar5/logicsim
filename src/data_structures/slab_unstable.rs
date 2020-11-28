@@ -1,31 +1,6 @@
-use std::fmt::{self, Display, Formatter};
-
-/// Transparent type that represents an index into a [Slab].
-///
-/// used to discourage accessing the [Slab] at arbitrary indexes.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[repr(transparent)]
-pub struct SlabIndex(pub(super) usize);
-impl SlabIndex {
-    /// Returns the inner [usize].
-    ///
-    /// Annoyingly long names discourage use and make you really think about what you are doing.
-    pub fn i_actually_really_know_what_i_am_doing_and_i_want_the_inner_usize(&self) -> usize {
-        self.0
-    }
-    /// Returns a new [SlabIndex] created from the provided [usize].
-    /// Annoyingly long names discourage use and make you really think about what you are doing.
-    pub fn i_actually_really_know_what_i_am_doing_and_i_want_to_construct_from_usize(
-        i: usize,
-    ) -> Self {
-        Self(i)
-    }
-}
-impl Display for SlabIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+use super::SlabIndex;
+use indexmap::IndexSet;
+use std::mem::MaybeUninit;
 
 /// Simple slab allocator. Stores items of the same type and can reuse removed indexes.
 ///
@@ -42,18 +17,17 @@ impl Display for SlabIndex {
 ///
 /// assert_eq!(s.get(index), None);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Slab<T: Sized> {
-    data: Vec<Option<T>>,
-    removed_indexes: Vec<SlabIndex>,
+    data: Vec<MaybeUninit<T>>,
+    removed_indexes: IndexSet<SlabIndex>,
 }
-#[allow(dead_code)]
 impl<T: Sized> Slab<T> {
     /// Returns an empty [Slab].
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
-            removed_indexes: Default::default(),
+            removed_indexes: IndexSet::new(),
         }
     }
 
@@ -62,11 +36,11 @@ impl<T: Sized> Slab<T> {
     /// Will reuse an empty index if one is available.
     pub fn insert(&mut self, item: T) -> SlabIndex {
         if let Some(index) = self.removed_indexes.pop() {
-            self.data[index.0] = Some(item);
+            self.data[index.0] = MaybeUninit::new(item);
             index
         } else {
             let index = SlabIndex(self.data.len());
-            self.data.push(Some(item));
+            self.data.push(MaybeUninit::new(item));
             index
         }
     }
@@ -76,7 +50,11 @@ impl<T: Sized> Slab<T> {
     /// Returns [None] if `index` has been removed.
     pub fn get_mut(&mut self, index: SlabIndex) -> Option<&mut T> {
         if let Some(item) = self.data.get_mut(index.0) {
-            return item.as_mut();
+            if self.removed_indexes.contains(&index) {
+                return None;
+            }
+            // This is safe because we check if the item is an empty space.
+            unsafe { return Some(item.assume_init_mut()) };
         }
         None
     }
@@ -86,7 +64,11 @@ impl<T: Sized> Slab<T> {
     /// Returns [None] if `index` has been removed.
     pub fn get(&self, index: SlabIndex) -> Option<&T> {
         if let Some(item) = self.data.get(index.0) {
-            return item.as_ref();
+            if self.removed_indexes.contains(&index) {
+                return None;
+            }
+            // This is safe because we check if the item is an empty space.
+            unsafe { return Some(item.assume_init_ref()) };
         }
         None
     }
@@ -95,13 +77,16 @@ impl<T: Sized> Slab<T> {
     ///
     /// Returns [None] if `index` has been removed.
     /// `index` will be reused on the next call to [Slab::insert].
+    // All the safety in this data structure depends on the implementation of this method.
     pub fn remove(&mut self, index: SlabIndex) -> Option<T> {
         if let Some(position) = self.data.get_mut(index.0) {
-            if position.is_none() {
+            if self.removed_indexes.contains(&index) {
                 return None;
             }
-            self.removed_indexes.push(index);
-            return position.take();
+            self.removed_indexes.insert(index);
+            let item = std::mem::replace(position, MaybeUninit::uninit());
+            // This is safe because we check if the item is an empty space.
+            unsafe { return Some(item.assume_init()) };
         }
         None
     }
@@ -129,6 +114,7 @@ impl<T: Sized> Slab<T> {
     pub fn iter(&self) -> Iter<T> {
         Iter {
             iter: self.data.iter().enumerate(),
+            removed_indexes: &self.removed_indexes,
         }
     }
 
@@ -152,7 +138,27 @@ impl<T: Sized> Slab<T> {
             "Tried to access removed index:{}",
             index
         );
-        &self.data.get_unchecked(index.0).as_ref().unwrap()
+        self.data.get_unchecked(index.0).assume_init_ref()
+    }
+}
+
+impl<T: Clone> Clone for Slab<T> {
+    fn clone(&self) -> Self {
+        let mut data = Vec::new();
+        data.reserve(self.data.len());
+        for (index, item) in self.data.iter().enumerate() {
+            if self.removed_indexes.contains(&SlabIndex(index)) {
+                data.push(MaybeUninit::uninit());
+            } else {
+                // This is safe because we check that the item is not an empty space.
+                unsafe { data.push(MaybeUninit::new(item.assume_init_ref().clone())) };
+            }
+        }
+
+        Self {
+            data,
+            removed_indexes: self.removed_indexes.clone(),
+        }
     }
 }
 
@@ -178,14 +184,18 @@ impl<T> Iterator for IntoIter<T> {
             if self.i.0 == self.slab.data.len() {
                 return None;
             }
-            let item = self.slab.data[self.i.0].take();
-
-            if item.is_none() {
+            if self.slab.removed_indexes.contains(&self.i) {
                 self.i.0 += 1;
                 continue;
             }
             // This is safe because we check if the item is an empty space.
-            let item = Some((self.i, item.unwrap()));
+            let item = unsafe {
+                Some((
+                    self.i,
+                    std::mem::replace(&mut self.slab.data[self.i.0], MaybeUninit::uninit())
+                        .assume_init(),
+                ))
+            };
             self.i.0 += 1;
             return item;
         }
@@ -194,7 +204,8 @@ impl<T> Iterator for IntoIter<T> {
 
 /// [Iterator] for [Slab]
 pub struct Iter<'a, T> {
-    iter: std::iter::Enumerate<std::slice::Iter<'a, Option<T>>>,
+    iter: std::iter::Enumerate<std::slice::Iter<'a, MaybeUninit<T>>>,
+    removed_indexes: &'a IndexSet<SlabIndex>,
 }
 impl<'a, T> Iterator for Iter<'a, T> {
     type Item = (SlabIndex, &'a T);
@@ -203,12 +214,12 @@ impl<'a, T> Iterator for Iter<'a, T> {
             let (i, item) = self.iter.next()?;
             let si = SlabIndex(i);
 
-            if item.is_none() {
+            if self.removed_indexes.contains(&si) {
                 continue;
             }
 
             // This is safe because we check if the item is an empty space.
-            return Some((si, item.as_ref().unwrap()));
+            unsafe { return Some((si, item.assume_init_ref())) };
         }
     }
 }

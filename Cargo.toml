@@ -12,6 +12,7 @@ debug = true
 default = ["debug_gates"]
 
 debug_gates = []
+logicsim_unstable = []
 
 [dependencies]
 colour = "0.5.0"

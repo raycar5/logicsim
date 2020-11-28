@@ -15,6 +15,7 @@ use smallvec::SmallVec;
 /// assert_eq!(bit_set, true);
 /// ```
 // Method was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
+#[cfg(feature = "logicsim_unstable")]
 pub fn word_mask_64(index: usize) -> (usize, u64) {
     // This is safe because the divisor is a non zero constant.
     let word = unsafe { std::intrinsics::unchecked_div(index, 64) };
@@ -23,6 +24,31 @@ pub fn word_mask_64(index: usize) -> (usize, u64) {
     let mask = unsafe {
         std::intrinsics::unchecked_shl(1u64, std::intrinsics::unchecked_rem(index, 64) as u64)
     };
+    (word, mask)
+}
+
+/// Returns the index and mask necessary to access the bit at `index` in a ```&[u64]```.
+///
+/// # Example
+///
+/// ```
+/// # use logicsim::data_structures::word_mask_64;
+/// let word_slice = [0u64, 1u64];
+/// let bit_index = 64;
+///
+/// let (word_index, mask) = word_mask_64(bit_index);
+/// let bit_set = (word_slice[word_index] & mask) != 0;
+///
+/// assert_eq!(bit_set, true);
+/// ```
+// Method was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
+#[cfg(not(feature = "logicsim_unstable"))]
+pub fn word_mask_64(index: usize) -> (usize, u64) {
+    // This is safe because the divisor is a non zero constant.
+    let word = index / 64;
+    // This is safe because the divisor is a non zero constant
+    // and the right operand of the shift can't be more than 64.
+    let mask = 1 << index % 64;
     (word, mask)
 }
 
