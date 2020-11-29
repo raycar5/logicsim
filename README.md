@@ -156,7 +156,7 @@ For example here is the graph representation of the [8 bit computer example](#th
 
 <img src="https://drive.google.com/uc?export=view&amp;id=1Vb8olMQxfzFrx3mOGi01C8_-E9zI53Ys" width="400px" height="271px">
 
-If we zoom in a bit we can see each node is labeled with it's name which can help debug really nasty optimization bugs.
+If we zoom in a bit we can see each node is labeled with it's name which can help debug really weird bugs.
 
 <img src="https://drive.google.com/uc?export=view&amp;id=1ScRP2ciK0SiCwFbFl3JrwTp1wf3Fn-br" width="400px" height="271px">
 
