@@ -5,3 +5,4 @@
 *.data.old
 /oprofile_data
 *.gz
+tarpaulin-report.html
