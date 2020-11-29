@@ -1,4 +1,5 @@
-/*!
+# logicsim
+
 Create and simulate digital circuits with rust abstractions!
 
 In logicsim you use a [GateGraphBuilder](TODO) to create and connect logic gates,
@@ -16,10 +17,9 @@ All constants and dead gates will be optimized away and the remaining graph simp
 
 **Zero overhead abstractions!**
 
-# Examples
+## Examples
 Simple gates.
-```
-# use logicsim::graph::{GateGraphBuilder,ON,OFF};
+```rust
 let mut g = GateGraphBuilder::new();
 
 // Providing each gate with a string name allows for some very neat debugging.
@@ -41,9 +41,7 @@ assert_eq!(and_output.b0(ig), false);
 ```
 
 Levers!
-```
-# use logicsim::graph::{GateGraphBuilder,ON,OFF};
-# let mut g = GateGraphBuilder::new();
+```rust
 let l1 = g.lever("l1");
 let l2 = g.lever("l2");
 
@@ -72,9 +70,7 @@ assert_eq!(and_output.b0(ig), true);
 ```
 
 [SR Latch!](https://en.wikipedia.org/wiki/Flip-flop_(electronics)#SR_NOR_latch)
-```
-# use logicsim::graph::{GateGraphBuilder,ON,OFF};
-# let mut g = GateGraphBuilder::new();
+```rust
 let r = g.lever("l1");
 let s = g.lever("l2");
 
@@ -104,18 +100,17 @@ assert_eq!(q_output.b0(ig), false);
 assert_eq!(nq_output.b0(ig), true);
 ```
 
-# Debugging
+## Debugging
 
 Currently there are 2 debugging tools:
 
-## Probes
+### Probes
 
 Calling [GateGraphBuilder::probe](todo) allows you to create probes, which will print the value of all of the bits provided
 along with their name whenever any of the bits change state within a [tick](todo).
 
-## Example:
-```
-# use logicsim::graph::{GateGraphBuilder,ON,OFF};
+### Example:
+```rust
 let mut g = GateGraphBuilder::new();
 
 let l1 = g.lever("l1");
@@ -151,7 +146,7 @@ or_xor: 3
 or_xor: 0
 ```
 
-## .dot files
+### .dot files
 
 Using the method [InitializedGateGraph::dump_dot](todo) you can generate [.dot](https://en.wikipedia.org/wiki/DOT_(graph_description_language))
 files which can be viewed in many different graph viewers. I recommend [gephi](https://gephi.org/), many others can't handle the size of the graphs
@@ -165,7 +160,7 @@ If we zoom in a bit we can see each node is labeled with it's name which can hel
 
 <img src="https://drive.google.com/uc?export=view&amp;id=1ScRP2ciK0SiCwFbFl3JrwTp1wf3Fn-br" width="400px" height="271px">
 
-# The 8 bit computer
+## The 8 bit computer
 
 In the examples folder you'll find a very simple 8 bit computer it's a great showcase of what you can achieve by using rust's constructs
 to create modular circuit abstractions.
@@ -177,11 +172,11 @@ cd logicsim
 cargo run --release --example computer greeter
 ```
 
-# Built in circuits
+## Built in circuits
 
 The `circuits` module features a lot of useful pre-built generic components, check them out [here](todo).
 
-# Next steps
+## Next steps
 
 - Better debugging: I want a gui where I can see many outputs at once with logic-analyzer-like features, probably web based.
 - More thorough optimization testing and debugging: I have documented and tested a lot of the public API surface but the optimizations folder
@@ -189,11 +184,5 @@ needs some love.
 - Risc-V: I want to test out the limits of logicsim by implementing a Risc-V core and running rust programs in it!
 - Compiling: Right now logicsim is just an interpreter, I might try making it compile circuits to either rust or x86_64 directly.
 - Synthesizing: I have a nice fpga dev kit next to me and it would be pretty cool if I could synthesize circuits built in logicsim into it.
-*/
-#[macro_use]
-pub mod graph;
-pub mod data_structures;
-extern crate concat_idents;
-pub mod circuits;
-pub use circuits::*;
-pub use graph::*;
+
+License: MIT

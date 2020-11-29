@@ -31,7 +31,7 @@ fn main() {
         p
     } else {
         panic!(
-            "Selected program not available: {}, available programs:\n{}",
+            "\nSelected program not available: {}, available programs:\n{}\n",
             program_name,
             list_programs().join("\n")
         )
@@ -53,6 +53,7 @@ fn main() {
     );
 
     let ig = &mut ig;
+    ig.dump_dot("computer_optimized.dot");
 
     let mut should_reset_ack = false;
     let mut stdin = StdinPeekable::new();

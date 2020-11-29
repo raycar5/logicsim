@@ -1,6 +1,11 @@
 [package]
 name = "logicsim"
 version = "0.1.0"
+license = "MIT"
+repository = "repository"
+readme = "README.md"
+keywords = ["digital", "logic", "simulator", "gates", "emulator", "logic gates"]
+categories = ["simulation", "embedded"]
 authors = ["raycar5 <none@ofyourbusiness.com>"]
 edition = "2018"
 

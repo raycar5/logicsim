@@ -86,7 +86,7 @@ macro_rules! gate_constructors {
 
 /// Data structure that represents a graph of logic gates, it can be [initialized](GateGraphBuilder::init) to simulate the circuit.
 ///
-/// Conceptually the gates are represented as nodes in a graph with dependency edges to other nodes.
+/// Conceptually the logic gates are represented as nodes in a graph with dependency edges to other nodes.
 ///
 /// Inputs are represented by constants([ON], [OFF]) and [levers](GateGraphBuilder::lever).
 ///
@@ -673,6 +673,44 @@ impl GateGraphBuilder {
 
     /// "Probes" the gates in `bits`, meaning that whenever the state of any of them changes,
     /// the new state of the group will be printed to stdout along with `name`.
+    ///
+    /// # Example
+    /// ```
+    /// # use logicsim::graph::{GateGraphBuilder,ON,OFF};
+    /// let mut g = GateGraphBuilder::new();
+    ///
+    /// let l1 = g.lever("l1");
+    /// let l2 = g.lever("l2");
+    ///
+    ///
+    /// let or = g.xor2(l1.bit(), l2.bit(), "or");
+    /// let xor = g.xor2(l1.bit(), l2.bit(), "xor");
+    /// g.probe(&[or,xor],"or_xor");
+    /// let xor_output = g.output1(xor, "xor_output");
+    ///
+    ///
+    /// let ig = &mut g.init();
+    /// assert_eq!(xor_output.b0(ig), false);
+    ///
+    /// ig.set_lever_stable(l1);
+    /// assert_eq!(xor_output.b0(ig), true);
+    ///
+    /// ig.set_lever_stable(l2);
+    /// assert_eq!(xor_output.b0(ig), false);
+    ///
+    /// ig.reset_lever_stable(l1);
+    /// assert_eq!(xor_output.b0(ig), true);
+    ///
+    /// ig.reset_lever_stable(l2);
+    /// assert_eq!(xor_output.b0(ig), false);
+    /// ```
+    /// In the terminal you'll see:
+    /// ```sh
+    /// or_xor: 3
+    /// or_xor: 1
+    /// or_xor: 3
+    /// or_xor: 0
+    /// ```
     #[cfg(feature = "debug_gates")]
     pub fn probe<S: Into<String>>(&mut self, bits: &[GateIndex], name: S) {
         let name = name.into();

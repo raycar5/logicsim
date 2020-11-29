@@ -144,12 +144,15 @@ impl InitializedGateGraph {
                 if old_state != new_state {
                     if let Some(probe) = self.probes.get(&idx) {
                         match probe.bits.len() {
-                            0 => {}
+                            0 => unreachable!(),
                             1 => println!("{}:{}", probe.name, new_state),
                             2..=8 => {
                                 println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
                             }
-                            _ => unimplemented!(),
+                            8..=128 => {
+                                println!("{}:{}", probe.name, self.collect_u128_lossy(&probe.bits))
+                            }
+                            _ => unimplemented!("I need to improve the probes, I know..."),
                         }
                     }
                 }
