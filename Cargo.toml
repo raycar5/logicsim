@@ -1,5 +1,6 @@
 [package]
 name = "logicsim"
+description = "composable, modular, digital logic simulation"
 version = "0.1.0"
 license = "MIT"
 repository = "repository"
@@ -31,5 +32,4 @@ indexmap = "1.6.0"
 strum = "0.19.5"
 strum_macros = "0.19.4"
 concat-idents = "1.0.0"
-termion = "1.5.5"
 casey = "0.3.3"
