@@ -3,4 +3,5 @@
 *.svg
 *.data
 *.data.old
+/oprofile_data
 *.gz

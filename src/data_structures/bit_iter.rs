@@ -41,14 +41,13 @@ pub fn word_mask_64(index: usize) -> (usize, u64) {
 ///
 /// assert_eq!(bit_set, true);
 /// ```
-// Method was 3.14% in the flame graph before unsafe, 2.7% after unsafe.
 #[cfg(not(feature = "logicsim_unstable"))]
 pub fn word_mask_64(index: usize) -> (usize, u64) {
     // This is safe because the divisor is a non zero constant.
     let word = index / 64;
     // This is safe because the divisor is a non zero constant
     // and the right operand of the shift can't be more than 64.
-    let mask = 1 << index % 64;
+    let mask = 1 << (index % 64);
     (word, mask)
 }
 

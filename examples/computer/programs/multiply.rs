@@ -1,39 +1,59 @@
-use super::super::instruction_set::InstructionType::*;
+use super::super::assembler::*;
+use super::{super::instruction_set::InstructionType::*, OutputType, Program};
 
-pub fn multiply_rom(a: u8, b: u8) -> Vec<u16> {
-    // LABELS
-    let number = 2;
-    let start = 12;
-    let end = number + 4;
-    let l00p = 22;
+// It only multiplies constants for now, binary to decimal doesn't really fit in
+// rom but I might implement it in hardware.
+const NUMBER1: u8 = 6;
+const NUMBER2: u8 = 7;
+pub struct Multiply();
+impl Program for Multiply {
+    fn clock_print_interval(&self) -> u64 {
+        std::u64::MAX
+    }
+    fn output_type(&self) -> OutputType {
+        OutputType::Number
+    }
+    fn ram_address_space_bits(&self) -> usize {
+        2
+    }
+    fn rom(&self) -> Vec<u16> {
+        assemble!(
+            // LABELS
+            label end;
+            label end_loop;
+            label l00p;
+            label number1;
+            label number2;
 
-    let ram_bit = 1 << 7;
-    // RAM pointers.
-    let counter = 0 | ram_bit;
-    let acc = 1 | ram_bit;
-    let step = 2 | ram_bit;
+            // RAM pointers.
+            counter =ram= 0;
+            acc  =ram= 1;
+            step =ram= 2;
 
-    vec![
-        JMP.with_data(start).into(),
-        a as u16,
-        b as u16,
-        LDA.with_data(acc).into(),
-        OUT.into(),
-        JMP.with_data(end + 4).into(),
-        LDA.with_data(number).into(), // Program start, LOAD number 1
-        STI.with_data(counter).into(),
-        LDA.with_data(number + 2).into(), // LOAD number 2
-        STI.with_data(acc).into(),
-        STI.with_data(step).into(),
-        LDA.with_data(counter).into(), // Loop start
-        LIB.with_data(1).into(),
-        SUB.into(),
-        JZ.with_data(end).into(),
-        STI.with_data(counter).into(),
-        LDA.with_data(acc).into(),
-        LDB.with_data(step).into(),
-        ADD.into(),
-        STI.with_data(acc).into(),
-        JMP.with_data(l00p).into(),
-    ]
+            LDA.with_label(number1);
+            STI.with_ptr(counter);
+            LDA.with_label(number2);
+            STI.with_ptr(acc);
+            STI.with_ptr(step);
+
+            l00p: LDA.with_ptr(counter); // Loop start
+            LIB.with_data(1);
+            SUB;
+            JZ.with_label(end);
+            STI.with_ptr(counter);
+            LDA.with_ptr(acc);
+            LDB.with_ptr(step);
+            ADD;
+            STI.with_ptr(acc);
+            JMP.with_label(l00p);
+
+            end:LDA.with_ptr(acc);
+            OUT;
+            end_loop: JMP.with_label(end_loop);
+
+
+            data#number1: [NUMBER1].iter().copied();
+            data#number2: [NUMBER2].iter().copied();
+        )
+    }
 }

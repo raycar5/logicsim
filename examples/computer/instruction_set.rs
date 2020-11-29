@@ -2,10 +2,12 @@ use num_enum::TryFromPrimitive;
 pub const OPCODE_LENGTH: u32 = 8;
 pub const DATA_LENGTH: u32 = 8;
 #[repr(u8)]
-#[derive(Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive, EnumCount)]
+#[derive(
+    Debug, Eq, PartialEq, EnumIter, Copy, Clone, TryFromPrimitive, EnumCount, Ord, PartialOrd, Hash,
+)]
 pub enum InstructionType {
     // Do nothing
-    //NOP = 0,
+    NOP = 0,
     // Load register A from ram address.
     LDA,
     // Load register B from ram address.
@@ -24,12 +26,17 @@ pub enum InstructionType {
     SWP,
     // Add the contents of register A and B and save the result in register A.
     ADD,
-    // Substract the contents of register B from A and save the result in register A.
+    // Subtracts the contents of register B from A and save the result in register A.
     SUB,
     // Load the result of the alu to the output register.
     OUT,
+    // If there is new content in the input register, load it into register A and jump to the immediate address.
+    // otherwise NOP
+    IN,
     // Set the program counter to address.
     JMP,
+    // Set the program counter to the contents of register B.
+    JMR,
     // Set the program counter to address if register A is zero.
     JZ,
 }
@@ -47,9 +54,10 @@ impl Into<u16> for InstructionType {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Ord, PartialOrd, Hash)]
 pub struct Instruction {
-    ty: InstructionType,
-    data: u8,
+    pub ty: InstructionType,
+    pub data: u8,
 }
 impl Into<u16> for Instruction {
     fn into(self) -> u16 {

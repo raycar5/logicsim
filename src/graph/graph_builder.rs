@@ -581,6 +581,9 @@ impl GateGraphBuilder {
 
     /// Returns true if `gate` is a lever or outputs/probes contain `gate`.
     pub(super) fn is_observable(&self, gate: GateIndex) -> bool {
+        if gate.is_const() {
+            return true;
+        }
         if self.outputs.contains(&gate) {
             return true;
         }

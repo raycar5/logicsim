@@ -9,7 +9,7 @@ fn mkname(name: String) -> String {
 // it will stay set until "ack" becomes active.
 // rust-analyzer makes this a non issue.
 #[allow(clippy::too_many_arguments)]
-pub fn output_register<S: Into<String>>(
+pub fn io_register<S: Into<String>>(
     g: &mut GateGraphBuilder,
     clock: GateIndex,
     write: GateIndex,
@@ -22,7 +22,11 @@ pub fn output_register<S: Into<String>>(
     let name = mkname(name.into());
 
     let updated_s = g.and2(write, clock, name.clone());
-    let updated_r = g.or2(reset, ack, name.clone());
+    let nupdated_s = g.not1(updated_s, name.clone());
+    let masked_sync_ack = g.and2(ack, nupdated_s, name.clone());
+    g.dpush(masked_sync_ack, clock);
+
+    let updated_r = g.or2(reset, masked_sync_ack, name.clone());
     let updated_output = sr_latch(g, updated_s, updated_r, name.clone());
 
     let register_output = register(g, clock, write, read, reset, input, name);

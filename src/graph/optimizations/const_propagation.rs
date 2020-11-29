@@ -22,12 +22,12 @@ fn find_replacement(
 
     let dependencies_len = g.get(idx).dependencies.len();
     if dependencies_len == 1 {
-        return Some(short_circuit_output.opposite_if_const().unwrap());
+        return Some(if negated ^ on { ON } else { OFF });
     }
 
     let mut non_const_dependency = None;
     for (i, dependency) in g.get(idx).dependencies.iter().copied().enumerate() {
-        if dependency == short_circuit_output {
+        if dependency == short_circuit {
             return Some(short_circuit_output);
         }
         if !dependency.is_const() {
@@ -65,7 +65,7 @@ fn find_replacement_xor(
 ) -> Option<GateIndex> {
     let dependencies_len = g.get(idx).dependencies.len();
     if dependencies_len == 1 {
-        return Some(if negated ^ on { OFF } else { ON });
+        return Some(if negated ^ on { ON } else { OFF });
     }
 
     let mut non_const_dependency = None;
@@ -124,8 +124,8 @@ pub fn const_propagation_pass(g: &mut GateGraphBuilder) {
             .map(|idx| WorkItem { idx, on: true }),
     );
 
-    for (_, gate) in g.nodes.iter() {
-        if !gate.ty.is_lever() && gate.dependencies.is_empty() {
+    for (i, gate) in g.nodes.iter() {
+        if !GateIndex::from(i).is_const() && !gate.ty.is_lever() && gate.dependencies.is_empty() {
             work.extend(
                 gate.dependents
                     .iter()
