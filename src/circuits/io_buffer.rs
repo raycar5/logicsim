@@ -4,7 +4,7 @@ fn mkname(name: String) -> String {
     format!("IOBUF:{}", name)
 }
 /// Data structure used to represent a piece of [RAM](https://en.wikipedia.org/wiki/Random-access_memory)
-/// that can be easily read and written to from rust.
+/// that can be easily read and written to from Rust.
 ///
 /// It is a naive implementation, therefore reading and writing should be done between clock cycles
 /// of the circuit interacting with the IOBuffer.
