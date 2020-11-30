@@ -149,7 +149,7 @@ impl InitializedGateGraph {
                             2..=8 => {
                                 println!("{}:{}", probe.name, self.collect_u8_lossy(&probe.bits))
                             }
-                            8..=128 => {
+                            9..=128 => {
                                 println!("{}:{}", probe.name, self.collect_u128_lossy(&probe.bits))
                             }
                             _ => unimplemented!("I need to improve the probes, I know..."),

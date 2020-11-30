@@ -3,7 +3,7 @@
 #[macro_export]
 /// https://danielkeep.github.io/tlborm/book/blk-counting.html
 /// much better than my old recursive solution
-macro_rules! count_arguments {
+macro_rules! count_unique_arguments {
     ($($idents:ident),* $(,)*) => {
         {
             #[allow(dead_code, non_camel_case_types)]
@@ -16,7 +16,7 @@ macro_rules! count_arguments {
 #[macro_export]
 macro_rules! generate_signal_getters {
     ($signal:ident, $($rest:ident),+) => {
-        logicsim::generate_signal_getters!(0,count_arguments!($($rest),+), $signal, $($rest),+);
+        logicsim::generate_signal_getters!(0,count_unique_arguments!($($rest),+), $signal, $($rest),+);
     };
     ($n:expr, $all:expr, $signal:ident) => {
         pub fn $signal(&self) -> &logicsim::Wire {
@@ -29,8 +29,8 @@ macro_rules! generate_signal_getters {
         });
     };
     ($n:expr, $all:expr, $signal:ident, $($rest:ident),+) => {
-        logicsim::generate_signal_getters!(($all-count_arguments!($($rest),+)), $all, $signal);
-        logicsim::generate_signal_getters!(($all-count_arguments!($($rest),+) + 1), $all, $($rest),+);
+        logicsim::generate_signal_getters!(($all-count_unique_arguments!($($rest),+)), $all, $signal);
+        logicsim::generate_signal_getters!(($all-count_unique_arguments!($($rest),+) + 1), $all, $($rest),+);
     };
 }
 #[macro_export]
@@ -38,7 +38,7 @@ macro_rules! generate_signal_getters {
 /// See the `computer/control_logic.rs` example for detailed usage.
 macro_rules! control_signal_set {
     ($name:ident, $($signals:ident),+) => {
-        control_signal_set!(logicsim::count_arguments!($($signals),+),$name,$($signals),+);
+        control_signal_set!(logicsim::count_unique_arguments!($($signals),+),$name,$($signals),+);
     };
     ($n:expr, $name:ident, $($signals:ident),+) => {
         pub struct $name {

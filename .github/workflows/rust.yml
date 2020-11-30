@@ -2,27 +2,22 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: icepuma/rust-action@1.48.0
-    - name: Build
-      run: cargo build --locked --verbose
-    - name: Format
-      run: cargo fmt -- --check
-    - name: Clippy
-      run: cargo clippy -- -Dwarnings
-    - name: Tests
-      run: cargo test --locked --verbose
-
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions/checkout@v2
+      - uses: icepuma/rust-action@1.48.0
+      - name: Clippy
+        run: cargo clippy -- -Dwarnings
+      - name: Tests
+        run: cargo test --locked --verbose
