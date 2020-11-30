@@ -1,14 +1,14 @@
 [package]
-name = "logicsim"
-description = "composable, modular, digital logic simulation"
-version = "0.1.5"
-license = "MIT"
-repository = "https://github.com/raycar5/logicsim"
-readme = "README.md"
-keywords = ["digital", "logic", "simulator", "gates", "emulator"]
-categories = ["simulation", "embedded"]
 authors = ["raycar5 <none@ofyourbusiness.com>"]
+categories = ["simulation", "embedded"]
+description = "composable, modular, digital logic simulation"
 edition = "2018"
+keywords = ["digital", "logic", "simulator", "gates", "emulator"]
+license = "MIT"
+name = "logicsim"
+readme = "README.md"
+repository = "https://github.com/raycar5/logicsim"
+version = "0.1.6"
 
 [profile.release]
 debug = true
@@ -19,17 +19,17 @@ debug_gates = []
 logicsim_unstable = []
 
 [dependencies]
-colour = "0.5.0"
-bitvec = "0.19.4"
-smallvec = "1.5.0"
-num_enum="0.5.1"
 auto_from = "0.3.0"
-num-integer = "0.1.44"
-petgraph = "0.5.1"
-ctrlc = "3.1.7"
-unwrap = "1.2.1"
-indexmap = "1.6.0"
-strum = "0.19.5"
-strum_macros = "0.19.4"
-concat-idents = "1.0.0"
 casey = "0.3.3"
+concat-idents = "1.0.0"
+indexmap = "1.6.0"
+num-integer = "0.1.44"
+num_enum = "0.5.1"
+petgraph = "0.5.1"
+smallvec = "1.5.0"
+strum = "0.20.0"
+strum_macros = "0.20.1"
+unwrap = "1.2.1"
+
+[dev-dependencies]
+ctrlc = "3.1.7"

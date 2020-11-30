@@ -200,22 +200,22 @@ needs some love.
 - Compiling: Right now logicsim is just an interpreter, I might try making it compile circuits to either Rust or x86_64 directly.
 - Synthesizing: I have a nice fpga dev kit next to me and it would be pretty cool if I could synthesize circuits built in logicsim into it.
 
-[GateGraphBuilder]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.GateGraphBuilder.html
-[ON]: https://docs.rs/logicsim/0.1.5/logicsim/graph/constant.ON.html
-[OFF]: https://docs.rs/logicsim/0.1.5/logicsim/graph/constant.OFF.html
-[lever]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.GateGraphBuilder.html#method.lever
-[OutputHandle]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.OutputHandle.html
-[output]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.GateGraphBuilder.html#method.output
-[InitializedGateGraph]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.InitializedGateGraph.html
-[WordInput]: https://docs.rs/logicsim/0.1.5/logicsim/circuits/struct.WordInput.html
-[Bus]: https://docs.rs/logicsim/0.1.5/logicsim/circuits/struct.Bus.html
-[Wire]: https://docs.rs/logicsim/0.1.5/logicsim/circuits/struct.Wire.html
-[d_flip_flop]: https://docs.rs/logicsim/0.1.5/logicsim/circuits/fn.d_flip_flop.html
-[rom]: https://docs.rs/logicsim/0.1.5/logicsim/circuits/fn.rom.html
-[circuits]: https://docs.rs/logicsim/0.1.5/logicsim/circuits/index.html
-[probe]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.GateGraphBuilder.html#method.probe
-[tick]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.InitializedGateGraph.html#method.tick
-[dump_dot]: https://docs.rs/logicsim/0.1.5/logicsim/graph/struct.InitializedGateGraph.html#method.dump_dot
+[GateGraphBuilder]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.GateGraphBuilder.html
+[ON]: https://docs.rs/logicsim/0.1.6/logicsim/graph/constant.ON.html
+[OFF]: https://docs.rs/logicsim/0.1.6/logicsim/graph/constant.OFF.html
+[lever]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.GateGraphBuilder.html#method.lever
+[OutputHandle]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.OutputHandle.html
+[output]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.GateGraphBuilder.html#method.output
+[InitializedGateGraph]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.InitializedGateGraph.html
+[WordInput]: https://docs.rs/logicsim/0.1.6/logicsim/circuits/struct.WordInput.html
+[Bus]: https://docs.rs/logicsim/0.1.6/logicsim/circuits/struct.Bus.html
+[Wire]: https://docs.rs/logicsim/0.1.6/logicsim/circuits/struct.Wire.html
+[d_flip_flop]: https://docs.rs/logicsim/0.1.6/logicsim/circuits/fn.d_flip_flop.html
+[rom]: https://docs.rs/logicsim/0.1.6/logicsim/circuits/fn.rom.html
+[circuits]: https://docs.rs/logicsim/0.1.6/logicsim/circuits/index.html
+[probe]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.GateGraphBuilder.html#method.probe
+[tick]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.InitializedGateGraph.html#method.tick
+[dump_dot]: https://docs.rs/logicsim/0.1.6/logicsim/graph/struct.InitializedGateGraph.html#method.dump_dot
 
 
 ## License: MIT
