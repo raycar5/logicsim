@@ -130,7 +130,7 @@ pub(super) enum GateType {
 }
 use GateType::*;
 impl GateType {
-    /// Calculates the new state of a gate from the state of it's dependencies.
+    /// Calculates the new state of a gate from the state of its dependencies.
     /// Keep in mind if the gate [is negated](GateType::is_negated) the result should be negated.
     ///
     /// # Example
@@ -181,7 +181,7 @@ impl GateType {
     /// For example in or gates if a single dependency is on, the gate is on, the state of the rest of the dependencies doesn't matter.
     /// The opposite is true for and gates.
     ///
-    /// Xor and Xnor gates on the other hand don't short-circuit therefore we need to know the state of all of it's dependencies to know
+    /// Xor and Xnor gates on the other hand don't short-circuit therefore we need to know the state of all of its dependencies to know
     /// the new state.
     ///
     /// # Panics
@@ -262,7 +262,7 @@ impl Display for GateType {
 /// If a gate has more than GATE_DEPENDENCIES_TINYVEC_SIZE, they will spill into the heap.
 pub(super) const GATE_DEPENDENCIES_TINYVEC_SIZE: usize = 2;
 
-/// Data structure which represents a gate node with edges to it's dependencies and dependents.
+/// Data structure which represents a gate node with edges to its dependencies and dependents.
 /// [Gate] is generic over the type of dependent container to provide more optimized containers for
 /// build time vs runtime.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

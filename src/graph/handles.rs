@@ -3,7 +3,7 @@ use super::InitializedGateGraph;
 use concat_idents::concat_idents;
 use smallvec::SmallVec;
 
-/// Data structure that represents a probe into a gate graph, whenever any of the gates in the probe changes it's state,
+/// Data structure that represents a probe into a gate graph, whenever any of the gates in the probe changes its state,
 /// The new value of all of the bits will be printed to stdout along with the name.
 #[derive(Debug, Clone)]
 #[cfg(feature = "debug_gates")]

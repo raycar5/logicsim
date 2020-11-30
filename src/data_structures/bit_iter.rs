@@ -125,7 +125,7 @@ impl BitIter {
         }
     }
 
-    /// Returns true if the value used to create the [BitIter] has all it's bits set to 0.
+    /// Returns true if the value used to create the [BitIter] has all its bits set to 0.
     ///
     /// # Example
     /// ```

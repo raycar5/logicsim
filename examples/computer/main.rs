@@ -82,7 +82,7 @@ fn main() {
             should_reset_ack = false
         }
 
-        // If the computer has updated it's output, print it, and send an acknowledgement
+        // If the computer has updated its output, print it, and send an acknowledgement
         // to the computer that we have consumed its output.
         if output_updated.b0(ig) && i % 2 == 1 {
             match output_type {

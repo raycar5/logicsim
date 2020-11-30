@@ -195,7 +195,7 @@ impl InitializedGateGraph {
         Err("Your graph didn't stabilize")
     }
 
-    /// Sets the state of `lever` to `value` and adds it to the pending updates if it's state has changed.
+    /// Sets the state of `lever` to `value` and adds it to the pending updates if its state has changed.
     fn update_lever_inner(&mut self, lever: LeverHandle, value: bool) {
         let idx = self.lever_handles[lever.handle];
         if self.state.get_state(idx.idx) != value {
@@ -228,7 +228,7 @@ impl InitializedGateGraph {
         self.update_lever(lever, false)
     }
 
-    /// Sets the state of `lever` to the opposite of it's current state and calls [InitializedGateGraph::tick] once.
+    /// Sets the state of `lever` to the opposite of its current state and calls [InitializedGateGraph::tick] once.
     pub fn flip_lever(&mut self, lever: LeverHandle) {
         let idx = self.lever_handles[lever.handle];
         self.state.set(idx.idx, !self.state.get_state(idx.idx));
@@ -265,7 +265,7 @@ impl InitializedGateGraph {
         self.run_until_stable(DEFAULT_STABLE_MAX).unwrap();
     }
 
-    /// Sets the state of `lever` to the opposite of it's current state and calls
+    /// Sets the state of `lever` to the opposite of its current state and calls
     /// [run_until_stable](InitializedGateGraph::run_until_stable), with [DEFAULT_STABLE_MAX].
     ///
     /// # Panics

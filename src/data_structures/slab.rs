@@ -57,7 +57,7 @@ impl<T: Sized> Slab<T> {
         }
     }
 
-    /// Inserts an item into the slab and returns it's index.
+    /// Inserts an item into the slab and returns its index.
     ///
     /// Will reuse an empty index if one is available.
     pub fn insert(&mut self, item: T) -> SlabIndex {

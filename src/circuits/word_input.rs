@@ -7,6 +7,28 @@ fn mkname(name: String) -> String {
     format!("WI:{}", name)
 }
 /// Data Structure that allows you to easily manage a group of [LeverHandles](LeverHandle).
+///
+/// # Example
+/// ```
+/// # use logicsim::{GateGraphBuilder,WordInput};
+/// # let mut g = GateGraphBuilder::new();
+/// let input = WordInput::new(&mut g, 3, "input");
+///
+/// let output = g.output(&input.bits(), "result");
+///
+/// let ig = &mut g.init();
+///
+/// assert_eq!(output.u8(ig), 0);
+///
+/// input.set_to(ig, 2);
+/// assert_eq!(output.u8(ig), 2);
+///
+/// input.set_bit(ig, 0);
+/// assert_eq!(output.u8(ig), 3);
+///
+/// input.flip_bit(ig, 1);
+/// assert_eq!(output.u8(ig), 1);
+/// ```
 pub struct WordInput {
     levers: Vec<LeverHandle>,
 }

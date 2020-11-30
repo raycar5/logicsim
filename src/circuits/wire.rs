@@ -71,7 +71,7 @@ impl Wire {
     }
 
     /// Makes a new lever for the wire, stores it for easy access later and returns
-    /// it's [LeverHandle].
+    /// its [LeverHandle].
     pub fn make_lever(&mut self, g: &mut GateGraphBuilder) -> LeverHandle {
         match self.lever {
             Some(lever) => lever,
