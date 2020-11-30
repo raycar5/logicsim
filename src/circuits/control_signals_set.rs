@@ -105,6 +105,7 @@ macro_rules! signals_to_bits {
 mod tests {
     use super::*;
     use crate as logicsim;
+    use concat_idents::concat_idents;
 
     control_signal_set!(TestSignals, s1, s2, s3);
 
