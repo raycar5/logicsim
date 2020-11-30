@@ -194,7 +194,7 @@ If we zoom in a bit we can see each node is labeled with it's name which can hel
 # Next steps
 
 - Better debugging: I want a gui where I can see many outputs at once with logic-analyzer-like features, probably web based.
-- More thorough optimization testing and debugging: I have documented and tested a lot of the public API surface but the optimizations folder
+- More thorough optimization testing and documentation: I have documented and tested a lot of the public API surface but the optimizations folder
 needs some love.
 - RISC-V: I want to test out the limits of logicsim by implementing a RISC-V core and running Rust programs in it!
 - Compiling: Right now logicsim is just an interpreter, I might try making it compile circuits to either Rust or x86_64 directly.
