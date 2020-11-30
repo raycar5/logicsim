@@ -1,33 +1,36 @@
 #![allow(unused_imports)]
 
 #[macro_export]
-/// Returns the number of arguments passed to the macro.
+/// https://danielkeep.github.io/tlborm/book/blk-counting.html
+/// much better than my old recursive solution
 macro_rules! count_arguments {
-    ($x:ident) => {
-        1
-    };
-    ($x:ident, $($rest:ident),+) => {
-        1 + logicsim::count_arguments!($($rest),+)
+    ($($idents:ident),* $(,)*) => {
+        {
+            #[allow(dead_code, non_camel_case_types)]
+            enum Idents { $($idents,)* __CountIdentsLast }
+            const COUNT: usize = Idents::__CountIdentsLast as usize;
+            COUNT
+        }
     };
 }
 #[macro_export]
 macro_rules! generate_signal_getters {
     ($signal:ident, $($rest:ident),+) => {
-        logicsim::generate_signal_getters!(0, $signal, $($rest),+);
+        logicsim::generate_signal_getters!(0,count_arguments!($($rest),+), $signal, $($rest),+);
     };
-    ($n:expr, $signal:ident) => {
+    ($n:expr, $all:expr, $signal:ident) => {
         pub fn $signal(&self) -> &logicsim::Wire {
             &self.signals[$n]
         }
         __concat_idents!(signal_index = $signal, _, index {
             pub fn signal_index() -> u8 {
-                $n
+                $n as u8
             }
         });
     };
-    ($n:expr, $signal:ident, $($rest:ident),+) => {
-        logicsim::generate_signal_getters!($n, $signal);
-        logicsim::generate_signal_getters!(1+$n, $($rest),+);
+    ($n:expr, $all:expr, $signal:ident, $($rest:ident),+) => {
+        logicsim::generate_signal_getters!(($all-count_arguments!($($rest),+)), $all, $signal);
+        logicsim::generate_signal_getters!(($all-count_arguments!($($rest),+) + 1), $all, $($rest),+);
     };
 }
 #[macro_export]

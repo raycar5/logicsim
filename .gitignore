@@ -6,3 +6,5 @@
 /oprofile_data
 *.gz
 tarpaulin-report.html
+chrome_profiler.json
+*.mm_profdata
