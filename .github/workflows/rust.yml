@@ -16,8 +16,29 @@ jobs:
     steps:
       - uses: Swatinem/rust-cache@v1
       - uses: actions/checkout@v2
-      - uses: icepuma/rust-action@1.48.0
-      - name: Clippy
-        run: cargo clippy -- -Dwarnings
-      - name: Tests
-        run: cargo test --locked --verbose
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --locked
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --locked
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --locked -- -D warnings

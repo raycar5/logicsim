@@ -91,10 +91,6 @@ macro_rules! signals_to_bits {
             logicsim::signals_to_bits!(0, $signal_set, $($signals),+)
         }
     };
-    // Github actions tests need this variant for some reason but my local copy does not.
-    ($bits:expr, $signal_set:ty, $signal:ident,) => {
-        logicsim::signals_to_bits!($bits, $signal_set, $signal)
-    };
     ($bits:expr, $signal_set:ty, $signal:ident) => {
         concat_idents!(signal_index = $signal, _, index {
             ($bits | (1 << $signal_set::signal_index()))
