@@ -91,13 +91,17 @@ macro_rules! signals_to_bits {
             logicsim::signals_to_bits!(0, $signal_set, $($signals),+)
         }
     };
+    // Github actions tests need this variant for some reason but my local copy does not.
+    ($bits:expr, $signal_set:ty, $signal:ident,) => {
+        logicsim::signals_to_bits!($bits, $signal_set, $signal)
+    };
     ($bits:expr, $signal_set:ty, $signal:ident) => {
         concat_idents!(signal_index = $signal, _, index {
             ($bits | (1 << $signal_set::signal_index()))
         });
     };
     ($bits:expr, $signal_set:ty, $signal:ident, $($rest:ident),+) => {
-        logicsim::signals_to_bits!(logicsim::signals_to_bits!($bits,$signal_set, $signal), $signal_set, $($rest),+);
+        logicsim::signals_to_bits!(logicsim::signals_to_bits!($bits, $signal_set, $signal), $signal_set, $($rest),+);
     };
 }
 
@@ -124,6 +128,6 @@ mod tests {
 
         assert_eq!(signals_to_bits!(TestSignals, s2, s3), 0b110);
         assert_eq!(signals_to_bits!(TestSignals, s3, s2), 0b110);
-        //assert_eq!(signals_to_bits!(TestSignals, s1, s2, s3), 0b111);
+        assert_eq!(signals_to_bits!(TestSignals, s1, s2, s3), 0b111);
     }
 }
