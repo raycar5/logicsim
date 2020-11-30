@@ -8,7 +8,7 @@ license = "MIT"
 name = "logicsim"
 readme = "README.md"
 repository = "https://github.com/raycar5/logicsim"
-version = "0.1.6"
+version = "0.1.7"
 
 [profile.release]
 debug = true
